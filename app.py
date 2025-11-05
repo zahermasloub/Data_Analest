@@ -28,21 +28,74 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS مخصص
+# CSS مخصص - تصميم رسمي احترافي
 st.markdown("""
 <style>
-    .reportview-container {
-        background: #f0f2f6
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
+    
+    .main {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
     .main .block-container {
         padding-top: 2rem;
     }
+    
     h1 {
-        color: #1f77b4;
-        font-family: 'Arial', sans-serif;
+        color: #1a237e !important;
+        font-weight: 800;
+        font-size: 2.5em;
+        text-align: center;
+        padding: 30px;
+        background: linear-gradient(135deg, #1a237e 0%, #3f51b5 100%);
+        color: white !important;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(26, 35, 126, 0.3);
     }
+    
+    h2 {
+        color: #283593 !important;
+        font-weight: 700;
+        border-bottom: 3px solid #e8eaf6;
+        padding-bottom: 10px;
+    }
+    
+    h3 {
+        color: #3f51b5 !important;
+        font-weight: 700;
+    }
+    
     .stAlert {
         border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stButton button {
+        background: linear-gradient(135deg, #1a237e 0%, #3f51b5 100%) !important;
+        color: white !important;
+        font-weight: 700;
+        border-radius: 8px;
+        padding: 14px 28px;
+        box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(26, 35, 126, 0.4);
+    }
+    
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f5f7fa 0%, #e8eaf6 100%);
+        border-right: 3px solid #3f51b5;
+    }
+    
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #1a237e !important;
     }
 </style>
 """, unsafe_allow_html=True)

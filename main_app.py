@@ -29,246 +29,371 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS مخصص للتنسيق الاحترافي
+# CSS مخصص للتنسيق الرسمي الاحترافي
 st.markdown("""
 <style>
-    /* الخلفية والألوان الرئيسية - متوافق مع الوضع الليلي */
-    .main {
-        background: transparent;
+    /* خط واضح واحترافي */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* العنوان الرئيسي - ألوان قوية ومقروءة */
+    /* الخلفية الرئيسية */
+    .main {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    /* العنوان الرئيسي - تصميم رسمي أنيق */
     .main-header {
         text-align: center;
-        background: linear-gradient(120deg, #1e88e5 0%, #42a5f5 100%);
+        background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3f51b5 100%);
         color: white !important;
-        padding: 30px;
-        border-radius: 15px;
-        margin-bottom: 30px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-        border: 2px solid rgba(255,255,255,0.2);
-    }
-    
-    .main-header h1, .main-header h2, .main-header p {
-        color: white !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    /* البطاقات - خلفية داكنة مع نص فاتح */
-    .card {
-        background: rgba(30, 30, 30, 0.95);
-        color: #ffffff !important;
-        padding: 25px;
+        padding: 40px 20px;
         border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        margin: 15px 0;
-        transition: transform 0.3s;
-        border: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(26, 35, 126, 0.3);
+        border: 3px solid #e8eaf6;
     }
     
-    .card h3, .card h4, .card p, .card li {
-        color: #ffffff !important;
+    .main-header h1 {
+        color: white !important;
+        font-weight: 700;
+        font-size: 2.5em;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .main-header h2 {
+        color: #e8eaf6 !important;
+        font-weight: 600;
+        font-size: 1.3em;
+        margin: 10px 0;
+    }
+    
+    .main-header p {
+        color: #c5cae9 !important;
+        font-size: 1em;
+        margin: 5px 0;
+    }
+    
+    /* البطاقات - تصميم نظيف ورسمي */
+    .card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        color: #2c3e50 !important;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin: 20px 0;
+        transition: all 0.3s ease;
+        border-left: 5px solid #3f51b5;
+    }
+    
+    .card h3, .card h4 {
+        color: #1a237e !important;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+    
+    .card p, .card li {
+        color: #34495e !important;
+        line-height: 1.8;
+        font-size: 1.05em;
     }
     
     .card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 12px rgba(0,0,0,0.4);
-        border-color: rgba(255,255,255,0.2);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(63, 81, 181, 0.2);
     }
     
-    /* صناديق النجاح - ألوان زاهية مع نص واضح */
+    /* صناديق النجاح - أخضر احترافي */
     .success-box {
-        background: linear-gradient(135deg, #7c4dff 0%, #651fff 100%);
+        background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
         color: white !important;
         border-radius: 10px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        border: 2px solid rgba(255,255,255,0.2);
+        padding: 25px;
+        margin: 20px 0;
+        box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
+        border: 2px solid #a5d6a7;
     }
     
-    .success-box h3, .success-box h4, .success-box p, .success-box li, .success-box ul {
+    .success-box h3, .success-box h4, .success-box p, .success-box li {
         color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        font-weight: 600;
     }
     
-    /* صناديق المعلومات - ألوان وردية قوية */
+    /* صناديق المعلومات - أزرق رسمي */
     .info-box {
-        background: linear-gradient(135deg, #ec407a 0%, #d81b60 100%);
+        background: linear-gradient(135deg, #0277bd 0%, #0288d1 100%);
         color: white !important;
         border-radius: 10px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        border: 2px solid rgba(255,255,255,0.2);
+        padding: 25px;
+        margin: 20px 0;
+        box-shadow: 0 4px 15px rgba(2, 119, 189, 0.3);
+        border: 2px solid #b3e5fc;
     }
     
-    .info-box h3, .info-box h4, .info-box p, .info-box li, .info-box ul {
+    .info-box h3, .info-box h4, .info-box p, .info-box li {
         color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        font-weight: 600;
     }
     
-    /* صناديق التحذير - برتقالي قوي مع نص أبيض */
+    /* صناديق التحذير - برتقالي رسمي */
     .warning-box {
-        background: linear-gradient(135deg, #ff6f00 0%, #e65100 100%);
+        background: linear-gradient(135deg, #f57c00 0%, #ef6c00 100%);
         color: white !important;
         border-radius: 10px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        border: 2px solid rgba(255,255,255,0.2);
+        padding: 25px;
+        margin: 20px 0;
+        box-shadow: 0 4px 15px rgba(245, 124, 0, 0.3);
+        border: 2px solid #ffe0b2;
     }
     
-    .warning-box h3, .warning-box h4, .warning-box p, .warning-box li, .warning-box ul {
+    .warning-box h3, .warning-box h4, .warning-box p, .warning-box li {
         color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        font-weight: 600;
     }
     
-    /* الأزرار - ألوان زاهية */
+    /* الأزرار - تصميم رسمي أنيق */
     .stButton button {
-        background: linear-gradient(120deg, #1e88e5 0%, #42a5f5 100%) !important;
+        background: linear-gradient(135deg, #1a237e 0%, #3f51b5 100%) !important;
         color: white !important;
-        font-weight: bold;
+        font-weight: 700;
         border: none;
         border-radius: 8px;
-        padding: 12px 24px;
+        padding: 14px 28px;
         font-size: 16px;
-        transition: all 0.3s;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .stButton button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-        background: linear-gradient(120deg, #1565c0 0%, #1e88e5 100%) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(26, 35, 126, 0.4);
+        background: linear-gradient(135deg, #283593 0%, #5c6bc0 100%) !important;
     }
     
     /* أزرار التحميل */
     .stDownloadButton button {
-        background: linear-gradient(120deg, #ec407a 0%, #d81b60 100%) !important;
+        background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%) !important;
         color: white !important;
-        font-weight: bold;
+        font-weight: 700;
         border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .stDownloadButton button:hover {
-        background: linear-gradient(120deg, #d81b60 0%, #c2185b 100%) !important;
+        background: linear-gradient(135deg, #388e3c 0%, #4caf50 100%) !important;
+        transform: translateY(-2px);
     }
     
-    /* المقاييس - خلفية داكنة */
+    /* المقاييس - تصميم نظيف */
     .stMetric {
-        background: rgba(30, 30, 30, 0.9) !important;
-        padding: 15px;
+        background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%) !important;
+        padding: 20px;
         border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-left: 4px solid #3f51b5;
     }
     
-    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
-        color: white !important;
+    .stMetric label {
+        color: #5c6bc0 !important;
+        font-weight: 700;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .stMetric [data-testid="stMetricValue"] {
+        color: #1a237e !important;
+        font-weight: 700;
+        font-size: 2em;
+    }
+    
+    .stMetric [data-testid="stMetricDelta"] {
+        color: #2e7d32 !important;
+        font-weight: 600;
     }
     
     /* تحسين العناوين */
-    h1, h2, h3, h4 {
-        color: #42a5f5 !important;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    h1 {
+        color: #1a237e !important;
+        font-weight: 800;
+        font-size: 2.2em;
+        margin-bottom: 10px;
     }
     
-    /* الشريط الجانبي */
+    h2 {
+        color: #283593 !important;
+        font-weight: 700;
+        font-size: 1.8em;
+        margin-top: 20px;
+        border-bottom: 3px solid #e8eaf6;
+        padding-bottom: 10px;
+    }
+    
+    h3 {
+        color: #3f51b5 !important;
+        font-weight: 700;
+        font-size: 1.4em;
+    }
+    
+    h4 {
+        color: #5c6bc0 !important;
+        font-weight: 600;
+        font-size: 1.2em;
+    }
+    
+    /* الشريط الجانبي - تصميم رسمي */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, rgba(30,136,229,0.15) 0%, rgba(66,165,245,0.15) 100%);
+        background: linear-gradient(180deg, #f5f7fa 0%, #e8eaf6 100%);
+        border-right: 3px solid #3f51b5;
+    }
+    
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #1a237e !important;
     }
     
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stSidebar"] label {
-        color: inherit !important;
+        color: #2c3e50 !important;
+        font-weight: 600;
     }
     
-    /* تحسين st.info, st.success, st.warning */
+    /* تحسين الرسائل */
     .stAlert {
-        border-radius: 8px;
-        border: 2px solid rgba(255,255,255,0.2);
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
-    /* الجداول */
+    /* الجداول - تصميم نظيف */
     [data-testid="stDataFrame"] {
         border-radius: 10px;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 2px solid #e8eaf6;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
     
-    /* التبويبات */
+    /* التبويبات - تصميم رسمي */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(30, 30, 30, 0.5);
+        gap: 10px;
+        background-color: #ffffff;
         border-radius: 10px;
-        padding: 5px;
+        padding: 8px;
+        border: 2px solid #e8eaf6;
     }
     
     .stTabs [data-baseweb="tab"] {
         border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: bold;
-        background-color: rgba(66, 165, 245, 0.2);
-        color: white !important;
+        padding: 12px 24px;
+        font-weight: 700;
+        background-color: #f5f7fa;
+        color: #5c6bc0 !important;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #e8eaf6;
+        border-color: #3f51b5;
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(120deg, #1e88e5 0%, #42a5f5 100%) !important;
+        background: linear-gradient(135deg, #1a237e 0%, #3f51b5 100%) !important;
         color: white !important;
+        border-color: #1a237e;
     }
     
-    /* File Uploader */
+    /* File Uploader - تصميم أنيق */
     [data-testid="stFileUploader"] {
-        background: rgba(30, 30, 30, 0.9);
-        border-radius: 10px;
-        padding: 20px;
-        border: 2px dashed rgba(66, 165, 245, 0.5);
+        background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+        border-radius: 12px;
+        padding: 25px;
+        border: 3px dashed #3f51b5;
+        transition: all 0.3s ease;
+    }
+    
+    [data-testid="stFileUploader"]:hover {
+        border-color: #1a237e;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8eaf6 100%);
     }
     
     [data-testid="stFileUploader"] label,
     [data-testid="stFileUploader"] span {
-        color: white !important;
+        color: #1a237e !important;
+        font-weight: 700;
     }
     
     /* Selectbox, Multiselect */
     .stSelectbox label, .stMultiSelect label {
-        color: #42a5f5 !important;
-        font-weight: bold;
+        color: #1a237e !important;
+        font-weight: 700;
+        font-size: 1.05em;
     }
     
-    /* الفواصل */
+    /* Radio buttons */
+    .stRadio label {
+        color: #1a237e !important;
+        font-weight: 700;
+        font-size: 1.1em;
+    }
+    
+    .stRadio [role="radiogroup"] label {
+        color: #2c3e50 !important;
+        font-weight: 600;
+    }
+    
+    /* الفواصل - خط رسمي */
     hr {
         border: none;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #42a5f5, transparent);
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #3f51b5, transparent);
         margin: 30px 0;
     }
     
     /* تحسين الـ expander */
     .streamlit-expanderHeader {
-        background: rgba(30, 30, 30, 0.8) !important;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8eaf6 100%) !important;
         border-radius: 8px;
-        color: white !important;
-        font-weight: bold;
-        border: 1px solid rgba(66, 165, 245, 0.3);
+        color: #1a237e !important;
+        font-weight: 700;
+        border: 2px solid #c5cae9;
+        transition: all 0.3s ease;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%) !important;
+        border-color: #3f51b5;
     }
     
     /* تحسين Checkbox */
     .stCheckbox label {
-        color: white !important;
+        color: #2c3e50 !important;
+        font-weight: 600;
     }
     
-    /* Radio buttons */
-    .stRadio label {
-        color: #42a5f5 !important;
-        font-weight: bold;
+    /* تحسين Slider */
+    .stSlider label {
+        color: #1a237e !important;
+        font-weight: 700;
     }
     
-    .stRadio [role="radiogroup"] label {
-        color: white !important;
+    /* تحسين Text Input */
+    .stTextInput label, .stTextArea label {
+        color: #1a237e !important;
+        font-weight: 700;
+        font-size: 1.05em;
+    }
+    
+    /* تحسين Number Input */
+    .stNumberInput label {
+        color: #1a237e !important;
+        font-weight: 700;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -276,9 +401,9 @@ st.markdown("""
 # العنوان الرئيسي
 st.markdown("""
 <div class="main-header">
-    <h1 style="margin: 0; font-size: 48px;">💼 Data Analest</h1>
-    <h2 style="margin: 10px 0; font-size: 24px;">نظام تحليل البيانات المالية الاحترافي</h2>
-    <p style="font-size: 16px; margin: 10px 0; opacity: 0.9;">
+    <h1 style="margin: 0; font-size: 3em; letter-spacing: 2px;">💼 Data Analest</h1>
+    <h2 style="margin: 15px 0; font-size: 1.5em; font-weight: 600;">نظام تحليل البيانات المالية الاحترافي</h2>
+    <p style="font-size: 1.1em; margin: 12px 0; opacity: 0.95; font-weight: 500;">
         🔍 كشف التكرارات | 📉 تحليل الانحرافات | 📊 إحصائيات متقدمة | 📥 تقارير احترافية
     </p>
     <p style="font-size: 14px; opacity: 0.8;">✨ مدعوم بالذكاء الاصطناعي - التاريخ: 5 نوفمبر 2025</p>
@@ -288,8 +413,8 @@ st.markdown("""
 # الشريط الجانبي
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: center; padding: 20px; background: white; border-radius: 10px; margin-bottom: 20px;">
-        <h2 style="color: #2193b0; margin: 0;">📊 القائمة الرئيسية</h2>
+    <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #1a237e 0%, #3f51b5 100%); border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);">
+        <h2 style="color: white; margin: 0; font-weight: 700; font-size: 1.5em;">📊 القائمة الرئيسية</h2>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1349,14 +1474,17 @@ elif main_page == "🏠 الصفحة الرئيسية":
 # التذييل
 st.divider()
 st.markdown("""
-<div style="text-align: center; padding: 30px; background: linear-gradient(120deg, #2193b0 0%, #6dd5ed 100%); border-radius: 15px; color: white;">
-    <h3 style="margin: 0; color: white;">💼 Data Analest</h3>
-    <p style="margin: 10px 0; opacity: 0.9;">نظام تحليل البيانات المالية الاحترافي</p>
-    <p style="margin: 10px 0; font-size: 14px; opacity: 0.8;">
+<div style="text-align: center; padding: 40px; background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3f51b5 100%); border-radius: 12px; color: white; box-shadow: 0 8px 20px rgba(26, 35, 126, 0.3); border: 3px solid #e8eaf6;">
+    <h3 style="margin: 0; color: white; font-weight: 700; font-size: 2em; letter-spacing: 1px;">💼 Data Analest</h3>
+    <p style="margin: 15px 0; opacity: 0.95; font-size: 1.2em; font-weight: 600;">نظام تحليل البيانات المالية الاحترافي</p>
+    <p style="margin: 15px 0; font-size: 1em; opacity: 0.9; font-weight: 500;">
         ✨ تم التطوير بواسطة GitHub Copilot | 📅 نوفمبر 2025
     </p>
-    <p style="margin: 10px 0; font-size: 13px; opacity: 0.7;">
+    <p style="margin: 15px 0; font-size: 0.95em; opacity: 0.85; font-weight: 500;">
         📧 zahermasloub@github.com | 🌐 github.com/zahermasloub/Data_Analest
+    </p>
+    <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.8; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.2);">
+        © 2025 جميع الحقوق محفوظة | الترخيص: MIT
     </p>
 </div>
 """, unsafe_allow_html=True)
