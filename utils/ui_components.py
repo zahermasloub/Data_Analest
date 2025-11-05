@@ -158,34 +158,46 @@ class UIComponents:
         title: str = "سير العمل",
         items: Optional[List[Dict[str, str]]] = None
     ):
-        """بطاقة خط زمني"""
+        """بطاقة خط زمني باستخدام مكونات Streamlit الأصلية"""
         if items is None:
             items = []
-            
-        timeline_html = ""
+        
+        # عنوان البطاقة
+        st.markdown(f"### {title}")
+        st.markdown("---")
+        
+        # عرض كل عنصر في timeline
         for i, item in enumerate(items):
-            is_last = i == len(items) - 1
-            line = "" if is_last else '<div style="width: 2px; height: 40px; background: var(--primary); margin: 0.5rem 0 0.5rem 1rem;"></div>'
+            col1, col2 = st.columns([1, 10])
             
-            timeline_html += f"""
-            <div style="display: flex; align-items: start; margin-bottom: {'0' if is_last else '1rem'};">
-                <div style="min-width: 2.5rem; height: 2.5rem; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; box-shadow: var(--shadow-md);">
+            with col1:
+                # الرقم الدائري
+                st.markdown(f"""
+                <div style="
+                    width: 50px; 
+                    height: 50px; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    border-radius: 50%; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    color: white; 
+                    font-weight: bold; 
+                    font-size: 1.2rem;
+                    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.4);
+                ">
                     {i+1}
                 </div>
-                <div style="margin-right: 1rem; flex: 1;">
-                    <h4 style="margin: 0 0 0.5rem 0;">{item.get('title', '')}</h4>
-                    <p style="margin: 0; opacity: 0.8;">{item.get('description', '')}</p>
-                </div>
-            </div>
-            {line}
-            """
-        
-        st.markdown(f"""
-        <div class="glass-card fade-in">
-            <h3 style="margin-bottom: 1.5rem;">{title}</h3>
-            {timeline_html}
-        </div>
-        """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                # العنوان والوصف
+                st.markdown(f"**{item.get('title', '')}**")
+                st.markdown(f"<p style='color: #888; margin-top: -10px;'>{item.get('description', '')}</p>", unsafe_allow_html=True)
+            
+            # خط فاصل (إلا في آخر عنصر)
+            if i < len(items) - 1:
+                st.markdown("<br>", unsafe_allow_html=True)
     
     @staticmethod
     def gradient_header(
