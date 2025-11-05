@@ -88,24 +88,35 @@ class AnomalyDetector:
         """
         logger.info(f"كشف الشذوذات في {column} باستخدام Z-Score...")
         
-        if column not in self.df.columns:
-            raise ValueError(f"العمود {column} غير موجود")
-        
-        # حساب Z-Score
-        z_scores = np.abs(stats.zscore(self.df[column].dropna()))
-        
-        # تحديد الشذوذات
-        mask = z_scores > threshold
-        anomalies = self.df.iloc[self.df[column].notna()][mask].copy()
-        
-        if len(anomalies) > 0:
-            anomalies['anomaly_type'] = 'Z-Score'
-            anomalies['z_score'] = z_scores[mask]
-            anomalies['anomaly_score'] = z_scores[mask] / threshold
-        
-        logger.info(f"تم العثور على {len(anomalies)} شذوذ ({len(anomalies)/len(self.df)*100:.2f}%)")
-        
-        return anomalies
+        try:
+            if column not in self.df.columns:
+                raise ValueError(f"العمود {column} غير موجود")
+            
+            # الحصول على البيانات غير الفارغة
+            valid_data = self.df[column].dropna()
+            valid_indices = self.df[column].notna()
+            
+            # حساب Z-Score
+            z_scores = np.abs(stats.zscore(valid_data))
+            
+            # تحديد الشذوذات
+            anomaly_mask = z_scores > threshold
+            
+            # الحصول على الصفوف الكاملة للشذوذات
+            anomalies = self.df[valid_indices].iloc[anomaly_mask].copy()
+            
+            if len(anomalies) > 0:
+                anomalies['anomaly_type'] = 'Z-Score'
+                anomalies['z_score'] = z_scores[anomaly_mask].values
+                anomalies['anomaly_score'] = (z_scores[anomaly_mask] / threshold).values
+            
+            logger.info(f"تم العثور على {len(anomalies)} شذوذ ({len(anomalies)/len(self.df)*100:.2f}%)")
+            
+            return anomalies
+            
+        except Exception as e:
+            logger.error(f"خطأ في Z-Score: {e}")
+            return pd.DataFrame()
     
     def detect_isolation_forest_anomalies(self,
                                          columns: List[str],

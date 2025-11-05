@@ -37,7 +37,7 @@ class DataLoader:
             raise FileNotFoundError(f"الملف غير موجود: {file_path}")
     
     def load(self, sheet_name: Optional[Union[str, int]] = 0, 
-             encoding: str = 'utf-8-sig') -> pd.DataFrame:
+             encoding: str = 'utf-8-sig') -> 'DataLoader':
         """
         تحميل البيانات من الملف
         
@@ -46,7 +46,7 @@ class DataLoader:
             encoding: الترميز المستخدم
             
         Returns:
-            DataFrame محمل
+            DataLoader object للسلسلة
         """
         logger.info(f"تحميل الملف: {self.file_path.name}")
         
@@ -65,7 +65,7 @@ class DataLoader:
             self._collect_metadata()
             
             logger.info(f"تم التحميل: {len(self.df)} صف، {len(self.df.columns)} عمود")
-            return self.df
+            return self
             
         except Exception as e:
             logger.error(f"خطأ في التحميل: {str(e)}")
