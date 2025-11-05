@@ -52,13 +52,7 @@ print("👀 الخطوة 3: عرض عينة من البيانات...")
 print("-" * 80)
 
 print("\n📊 أول 5 صفوف:")
-# عرض الأعمدة الأساسية فقط
-display_cols = ['OwnerName', 'EntryTypeNumber', 'Race', 'Season']
-available_cols = [col for col in display_cols if col in df.columns]
-if available_cols:
-    print(df[available_cols].head(5).to_string(index=False))
-else:
-    print(df.head(5).to_string(index=False))
+print(df.head(5).to_string())
 
 input("\n⏸️  اضغط Enter للمتابعة إلى الخطوة التالية...")
 
@@ -173,10 +167,8 @@ fuzzy_matches = analyzer.find_fuzzy_duplicates(
 if len(fuzzy_matches) > 0:
     print(f"\n✅ تم العثور على {len(fuzzy_matches)} تطابق ضبابي")
     print("\n📋 أمثلة على الأسماء المتشابهة:")
-    count = 0
-    for idx, row in fuzzy_matches.head(10).iterrows():
-        count += 1
-        print(f"\n   {count}. التطابق:")
+    for i, row in fuzzy_matches.head(10).iterrows():
+        print(f"\n   {i+1}. التطابق:")
         print(f"      • الاسم 1: {row['original_name1']}")
         print(f"      • الاسم 2: {row['original_name2']}")
         print(f"      • نسبة التشابه: {row['similarity']*100:.1f}%")
