@@ -873,6 +873,479 @@ elif main_page == "📚 دليل الاستخدام":
         </div>
         """, unsafe_allow_html=True)
 
+# ==================== صفحة تحليل الموارد البشرية ====================
+elif main_page == "👥 تحليل الموارد البشرية":
+    st.markdown("""
+    <div class="card">
+        <h2 style="color: #2193b0;">👥 تحليل بيانات الموارد البشرية</h2>
+        <p>فحوصات متخصصة لبيانات الموظفين والرواتب والحضور</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # رفع الملف
+    hr_file = st.file_uploader(
+        "📂 رفع ملف بيانات الموظفين (CSV أو Excel)",
+        type=['csv', 'xlsx', 'xls'],
+        key="hr_uploader"
+    )
+    
+    if hr_file:
+        try:
+            # قراءة البيانات
+            if hr_file.name.endswith('.csv'):
+                hr_df = pd.read_csv(hr_file)
+            else:
+                hr_df = pd.read_excel(hr_file)
+            
+            st.success(f"✅ تم تحميل الملف بنجاح! عدد السجلات: {len(hr_df)}")
+            
+            # عرض أول 5 صفوف
+            with st.expander("👁️ معاينة البيانات"):
+                st.dataframe(hr_df.head(), use_container_width=True)
+            
+            # تحديد الأعمدة المتاحة
+            columns = hr_df.columns.tolist()
+            
+            st.divider()
+            
+            # إنشاء محلل الموارد البشرية
+            hr_analyzer = HRAnalyzer(hr_df)
+            
+            # التبويبات الرئيسية
+            hr_tabs = st.tabs([
+                "💰 تحليل الرواتب",
+                "📅 تحليل الحضور",
+                "🏢 تحليل الأقسام",
+                "⭐ تحليل الأداء",
+                "👤 توزيع الموظفين",
+                "📊 تحليلات متقدمة"
+            ])
+            
+            # تحليل الرواتب
+            with hr_tabs[0]:
+                st.markdown("### 💰 تحليل الرواتب")
+                salary_col = st.selectbox(
+                    "اختر عمود الراتب:",
+                    columns,
+                    key="salary_col"
+                )
+                
+                if st.button("🔍 تحليل الرواتب", key="analyze_salaries"):
+                    with st.spinner("جاري التحليل..."):
+                        results = hr_analyzer.analyze_salaries(salary_col)
+                        
+                        if "error" not in results:
+                            # المقاييس
+                            cols = st.columns(4)
+                            cols[0].metric("💵 المتوسط", f"{results['المتوسط']:,.0f}")
+                            cols[1].metric("📊 الوسيط", f"{results['الوسيط']:,.0f}")
+                            cols[2].metric("📈 أعلى راتب", f"{results['أعلى راتب']:,.0f}")
+                            cols[3].metric("📉 أقل راتب", f"{results['أقل راتب']:,.0f}")
+                            
+                            cols2 = st.columns(3)
+                            cols2[0].metric("📏 الانحراف المعياري", f"{results['الانحراف المعياري']:,.0f}")
+                            cols2[1].metric("📊 معامل التباين", f"{results['معامل التباين']:.2f}%")
+                            cols2[2].metric("⚠️ رواتب شاذة", results['عدد الرواتب الشاذة'])
+                            
+                            # رسم توزيع الرواتب
+                            fig = px.histogram(
+                                hr_df,
+                                x=salary_col,
+                                nbins=30,
+                                title="📊 توزيع الرواتب",
+                                labels={salary_col: "الراتب"}
+                            )
+                            fig.update_layout(showlegend=False)
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.error(results['error'])
+            
+            # تحليل الحضور
+            with hr_tabs[1]:
+                st.markdown("### 📅 تحليل الحضور")
+                attendance_col = st.selectbox(
+                    "اختر عمود الحضور:",
+                    columns,
+                    key="attendance_col"
+                )
+                threshold = st.slider(
+                    "حد الحضور الضعيف (أيام):",
+                    min_value=10,
+                    max_value=30,
+                    value=20,
+                    key="attendance_threshold"
+                )
+                
+                if st.button("🔍 تحليل الحضور", key="analyze_attendance"):
+                    with st.spinner("جاري التحليل..."):
+                        results = hr_analyzer.analyze_attendance(attendance_col, threshold)
+                        
+                        if "error" not in results:
+                            cols = st.columns(3)
+                            cols[0].metric("📊 متوسط الحضور", f"{results['متوسط الحضور']:.1f} يوم")
+                            cols[1].metric("⚠️ موظفين بحضور ضعيف", results['موظفين بحضور ضعيف'])
+                            cols[2].metric("📉 نسبة الحضور الضعيف", f"{results['نسبة الحضور الضعيف']:.1f}%")
+                            
+                            # رسم بياني
+                            fig = px.box(
+                                hr_df,
+                                y=attendance_col,
+                                title="📊 توزيع الحضور",
+                                labels={attendance_col: "أيام الحضور"}
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.error(results['error'])
+            
+            # تحليل الأقسام
+            with hr_tabs[2]:
+                st.markdown("### 🏢 تحليل الأقسام")
+                dept_col = st.selectbox(
+                    "اختر عمود القسم:",
+                    columns,
+                    key="dept_col"
+                )
+                
+                if st.button("🔍 تحليل الأقسام", key="analyze_depts"):
+                    with st.spinner("جاري التحليل..."):
+                        results = hr_analyzer.analyze_departments(dept_col)
+                        
+                        if "error" not in results:
+                            cols = st.columns(3)
+                            cols[0].metric("🏢 عدد الأقسام", results['عدد الأقسام'])
+                            cols[1].metric("👥 متوسط الموظفين", f"{results['متوسط الموظفين بالقسم']:.1f}")
+                            cols[2].metric("📊 أكبر قسم", results['أكبر قسم'])
+                            
+                            # رسم بياني
+                            dept_data = pd.DataFrame(
+                                results['توزيع الأقسام'].items(),
+                                columns=['القسم', 'عدد الموظفين']
+                            )
+                            fig = px.bar(
+                                dept_data,
+                                x='القسم',
+                                y='عدد الموظفين',
+                                title="📊 توزيع الموظفين حسب الأقسام"
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.error(results['error'])
+            
+            # تحليل الأداء
+            with hr_tabs[3]:
+                st.markdown("### ⭐ تحليل الأداء")
+                performance_col = st.selectbox(
+                    "اختر عمود الأداء:",
+                    columns,
+                    key="performance_col"
+                )
+                
+                if st.button("🔍 تحليل الأداء", key="analyze_performance"):
+                    with st.spinner("جاري التحليل..."):
+                        results = hr_analyzer.analyze_performance(performance_col)
+                        
+                        if "error" not in results:
+                            cols = st.columns(4)
+                            cols[0].metric("⭐ متوسط الأداء", f"{results['متوسط الأداء']:.1f}")
+                            cols[1].metric("🌟 ممتاز (90+)", results['ممتاز (90+)'])
+                            cols[2].metric("✅ جيد (70-89)", results['جيد (70-89)'])
+                            cols[3].metric("⚠️ ضعيف (<50)", results['ضعيف (<50)'])
+                            
+                            # رسم بياني
+                            levels_data = pd.DataFrame({
+                                'المستوى': ['ممتاز', 'جيد', 'متوسط', 'ضعيف'],
+                                'العدد': [
+                                    results['ممتاز (90+)'],
+                                    results['جيد (70-89)'],
+                                    results['متوسط (50-69)'],
+                                    results['ضعيف (<50)']
+                                ]
+                            })
+                            fig = px.pie(
+                                levels_data,
+                                values='العدد',
+                                names='المستوى',
+                                title="📊 توزيع مستويات الأداء"
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.error(results['error'])
+            
+            # توزيع الموظفين
+            with hr_tabs[4]:
+                st.markdown("### 👤 توزيع الموظفين")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    gender_col = st.selectbox(
+                        "عمود الجنس:",
+                        columns,
+                        key="gender_col"
+                    )
+                    
+                    if st.button("تحليل الجنس", key="analyze_gender"):
+                        results = hr_analyzer.analyze_gender_distribution(gender_col)
+                        if "error" not in results:
+                            st.json(results['النسب المئوية'])
+                
+                with col2:
+                    exp_col = st.selectbox(
+                        "عمود الخبرة:",
+                        columns,
+                        key="exp_col"
+                    )
+                    
+                    if st.button("تحليل الخبرة", key="analyze_exp"):
+                        results = hr_analyzer.analyze_experience(exp_col)
+                        if "error" not in results:
+                            st.metric("متوسط الخبرة", f"{results['متوسط سنوات الخبرة']:.1f} سنة")
+            
+            # تحليلات متقدمة
+            with hr_tabs[5]:
+                st.markdown("### 📊 تحليلات متقدمة")
+                
+                analysis_type = st.selectbox(
+                    "نوع التحليل:",
+                    ["فجوات الرواتب بين الأقسام", "الموظفين المتميزين", "مخاطر ترك العمل"]
+                )
+                
+                if analysis_type == "فجوات الرواتب بين الأقسام":
+                    col1, col2 = st.columns(2)
+                    salary_col_adv = col1.selectbox("عمود الراتب:", columns, key="sal_adv")
+                    dept_col_adv = col2.selectbox("عمود القسم:", columns, key="dept_adv")
+                    
+                    if st.button("🔍 تحليل الفجوات"):
+                        result = hr_analyzer.find_salary_gaps(salary_col_adv, dept_col_adv)
+                        st.dataframe(result, use_container_width=True)
+                
+                elif analysis_type == "الموظفين المتميزين":
+                    perf_col_adv = st.selectbox("عمود الأداء:", columns, key="perf_adv")
+                    threshold_adv = st.slider("الحد الأدنى:", 70, 95, 85, key="thresh_adv")
+                    
+                    if st.button("🔍 عرض المتميزين"):
+                        result = hr_analyzer.find_high_performers(perf_col_adv, threshold_adv)
+                        st.dataframe(result, use_container_width=True)
+                
+                else:  # مخاطر ترك العمل
+                    col1, col2 = st.columns(2)
+                    sat_col = col1.selectbox("عمود الرضا:", columns, key="sat_col")
+                    perf_col2 = col2.selectbox("عمود الأداء:", columns, key="perf_col2")
+                    
+                    if st.button("🔍 تقييم المخاطر"):
+                        result = hr_analyzer.calculate_turnover_risk(sat_col, perf_col2)
+                        st.dataframe(result, use_container_width=True)
+        
+        except Exception as e:
+            st.error(f"❌ خطأ في قراءة الملف: {str(e)}")
+
+# ==================== صفحة الفحوصات المخصصة ====================
+elif main_page == "🔧 فحوصات مخصصة":
+    st.markdown("""
+    <div class="card">
+        <h2 style="color: #2193b0;">🔧 إنشاء فحوصات مخصصة</h2>
+        <p>أضف فحوصاتك الخاصة بسهولة بدون خبرة برمجية!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # تهيئة المولد الذكي
+    if 'test_generator' not in st.session_state:
+        st.session_state.test_generator = SmartTestGenerator()
+    
+    generator = st.session_state.test_generator
+    
+    # التبويبات
+    custom_tabs = st.tabs(["➕ إضافة فحص جديد", "📋 فحوصاتي", "▶️ تشغيل الفحوصات"])
+    
+    # إضافة فحص جديد
+    with custom_tabs[0]:
+        st.markdown("### ➕ إنشاء فحص جديد")
+        
+        st.info("""
+        💡 **كيف تضيف فحص جديد؟**
+        1. اختر نوع الفحص من القوالب الجاهزة
+        2. أدخل اسم ووصف الفحص
+        3. حدد العمود المراد فحصه
+        4. أدخل المعاملات المطلوبة
+        5. اضغط حفظ!
+        """)
+        
+        # عرض القوالب المتاحة
+        st.markdown("#### 📑 القوالب المتاحة:")
+        templates = generator.get_available_templates()
+        template_descriptions = {
+            "مقارنة": "مقارنة قيم عمود بقيمة محددة (أكبر، أصغر، يساوي)",
+            "عدد": "عد القيم أو عد قيمة محددة في عمود",
+            "متوسط": "حساب المتوسط والوسيط للقيم الرقمية",
+            "مجموع": "حساب مجموع القيم الرقمية",
+            "نسبة": "حساب نسبة قيمة معينة من الإجمالي",
+            "تصفية": "تصفية البيانات حسب شرط معين",
+            "تجميع": "تجميع البيانات حسب عمود معين",
+            "أعلى_قيم": "عرض أعلى N قيمة",
+            "أقل_قيم": "عرض أقل N قيمة",
+            "نطاق": "البحث عن قيم ضمن نطاق محدد"
+        }
+        
+        selected_template = st.selectbox(
+            "اختر نوع الفحص:",
+            templates,
+            format_func=lambda x: f"{x} - {template_descriptions.get(x, '')}"
+        )
+        
+        st.divider()
+        
+        # نموذج إضافة الفحص
+        with st.form("add_custom_test"):
+            test_name = st.text_input("📝 اسم الفحص:", placeholder="مثال: فحص الرواتب العالية")
+            test_desc = st.text_area("📄 وصف الفحص:", placeholder="مثال: البحث عن الموظفين برواتب أكبر من 10000")
+            column_name = st.text_input("📊 اسم العمود:", placeholder="مثال: الراتب")
+            
+            # معاملات حسب نوع القالب
+            params = {}
+            
+            if selected_template == "مقارنة":
+                col1, col2 = st.columns(2)
+                params['operator'] = col1.selectbox("المعامل:", [">", "<", "==", ">=", "<="])
+                params['value'] = col2.number_input("القيمة:", value=0.0)
+            
+            elif selected_template == "عدد":
+                params['value'] = st.text_input("القيمة (اختياري):", help="اتركه فارغاً لعد جميع القيم")
+            
+            elif selected_template in ["متوسط", "مجموع"]:
+                params['condition_column'] = st.text_input("عمود الشرط (اختياري):")
+                if params['condition_column']:
+                    params['condition_value'] = st.text_input("قيمة الشرط:")
+            
+            elif selected_template == "نسبة":
+                params['value'] = st.text_input("القيمة المراد حساب نسبتها:")
+            
+            elif selected_template == "تصفية":
+                col1, col2 = st.columns(2)
+                params['condition'] = col1.selectbox("الشرط:", ["==", "!=", "contains"])
+                params['value'] = col2.text_input("القيمة:")
+            
+            elif selected_template == "تجميع":
+                params['agg_column'] = st.text_input("عمود التجميع:")
+                params['operation'] = st.selectbox("العملية:", ["count", "sum", "mean"])
+            
+            elif selected_template in ["أعلى_قيم", "أقل_قيم"]:
+                params['n'] = st.number_input("عدد القيم:", min_value=1, max_value=100, value=10)
+            
+            elif selected_template == "نطاق":
+                col1, col2 = st.columns(2)
+                params['min_value'] = col1.number_input("القيمة الدنيا:", value=0.0)
+                params['max_value'] = col2.number_input("القيمة العليا:", value=100.0)
+            
+            submitted = st.form_submit_button("💾 حفظ الفحص", use_container_width=True)
+            
+            if submitted:
+                if test_name and test_desc and column_name:
+                    result = generator.create_test_from_template(
+                        test_name=test_name,
+                        description=test_desc,
+                        template_type=selected_template,
+                        column_name=column_name,
+                        **params
+                    )
+                    
+                    if result.get('success'):
+                        st.success(f"✅ تم إنشاء الفحص بنجاح! ID: {result['test_id']}")
+                        st.balloons()
+                    else:
+                        st.error(f"❌ خطأ: {result.get('error', 'خطأ غير معروف')}")
+                else:
+                    st.error("⚠️ يرجى ملء جميع الحقول المطلوبة!")
+    
+    # عرض الفحوصات
+    with custom_tabs[1]:
+        st.markdown("### 📋 فحوصاتي المحفوظة")
+        
+        all_tests = generator.get_all_tests()
+        
+        if not all_tests:
+            st.info("📝 لم تقم بإنشاء أي فحوصات بعد. ابدأ بإضافة فحص جديد من التبويب الأول!")
+        else:
+            for test_id, test_config in all_tests.items():
+                with st.expander(f"{'✅' if test_config.get('enabled') else '❌'} {test_config['name']}"):
+                    st.markdown(f"**الوصف:** {test_config['description']}")
+                    st.markdown(f"**النوع:** {test_config['template']}")
+                    st.markdown(f"**العمود:** {test_config['column']}")
+                    st.markdown(f"**تاريخ الإنشاء:** {test_config['created_at'][:10]}")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    if col1.button("🗑️ حذف", key=f"del_{test_id}"):
+                        if generator.delete_test(test_id):
+                            st.success("تم الحذف!")
+                            st.rerun()
+                    
+                    if col2.button("🔄 تفعيل/تعطيل", key=f"toggle_{test_id}"):
+                        generator.toggle_test(test_id)
+                        st.rerun()
+    
+    # تشغيل الفحوصات
+    with custom_tabs[2]:
+        st.markdown("### ▶️ تشغيل الفحوصات")
+        
+        # رفع ملف للاختبار
+        test_file = st.file_uploader(
+            "📂 رفع ملف للاختبار:",
+            type=['csv', 'xlsx', 'xls'],
+            key="test_file_uploader"
+        )
+        
+        if test_file:
+            try:
+                # قراءة البيانات
+                if test_file.name.endswith('.csv'):
+                    test_df = pd.read_csv(test_file)
+                else:
+                    test_df = pd.read_excel(test_file)
+                
+                st.success(f"✅ تم تحميل الملف: {len(test_df)} صف")
+                
+                # عرض الفحوصات المتاحة
+                all_tests = generator.get_all_tests()
+                enabled_tests = {k: v for k, v in all_tests.items() if v.get('enabled', True)}
+                
+                if not enabled_tests:
+                    st.warning("⚠️ لا توجد فحوصات مفعلة!")
+                else:
+                    st.markdown(f"**📊 عدد الفحوصات المفعلة:** {len(enabled_tests)}")
+                    
+                    if st.button("▶️ تشغيل جميع الفحوصات", use_container_width=True):
+                        with st.spinner("جاري تشغيل الفحوصات..."):
+                            results_list = []
+                            
+                            for test_id, test_config in enabled_tests.items():
+                                result = generator.execute_test(test_id, test_df)
+                                results_list.append({
+                                    'test_id': test_id,
+                                    'result': result
+                                })
+                            
+                            # عرض النتائج
+                            st.divider()
+                            st.markdown("## 📊 نتائج الفحوصات")
+                            
+                            for item in results_list:
+                                result = item['result']
+                                
+                                if result.get('success'):
+                                    with st.expander(f"✅ {result['test_name']}", expanded=True):
+                                        st.markdown(f"**الوصف:** {result['description']}")
+                                        st.json(result['result'])
+                                else:
+                                    with st.expander(f"❌ {result.get('test_name', 'فحص')} - خطأ"):
+                                        st.error(result.get('error', 'خطأ غير معروف'))
+            
+            except Exception as e:
+                st.error(f"❌ خطأ: {str(e)}")
+
+# ==================== الصفحة الرئيسية ====================
+elif main_page == "🏠 الصفحة الرئيسية":
+    pass  # الصفحة الرئيسية موجودة بالأعلى
+
 # التذييل
 st.divider()
 st.markdown("""
