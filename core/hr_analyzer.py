@@ -53,12 +53,13 @@ class HRAnalyzer:
         
         return results
     
-    def analyze_attendance(self, attendance_column: str, threshold: int = 20) -> Dict[str, Any]:
+    def analyze_attendance(self, attendance_column: str, absence_column: str = None, threshold: int = 20) -> Dict[str, Any]:
         """
-        تحليل الحضور
+        تحليل الحضور والغياب
         - متوسط أيام الحضور
+        - متوسط أيام الغياب
+        - نسبة الحضور والغياب
         - الموظفين بحضور ضعيف
-        - معدل الحضور العام
         """
         if attendance_column not in self.data.columns:
             return {"error": f"العمود {attendance_column} غير موجود"}
@@ -75,6 +76,20 @@ class HRAnalyzer:
             "الانحراف المعياري": float(attendance.std()),
             "عدد الموظفين": len(attendance)
         }
+        
+        # تحليل الغياب إذا تم تحديد العمود
+        if absence_column and absence_column in self.data.columns:
+            absence = pd.to_numeric(self.data[absence_column], errors='coerce').dropna()
+            if len(absence) > 0:
+                results["متوسط الغياب"] = float(absence.mean())
+                results["أعلى غياب"] = float(absence.max())
+                results["أقل غياب"] = float(absence.min())
+                
+                # حساب النسب
+                total_days = attendance.mean() + absence.mean()
+                if total_days > 0:
+                    results["نسبة الحضور"] = float((attendance.mean() / total_days) * 100)
+                    results["نسبة الغياب"] = float((absence.mean() / total_days) * 100)
         
         # الموظفين بحضور ضعيف
         poor_attendance = attendance[attendance < threshold]
@@ -95,12 +110,15 @@ class HRAnalyzer:
         
         dept_counts = self.data[dept_column].value_counts()
         
+        if len(dept_counts) == 0:
+            return {"error": "لا توجد بيانات أقسام صالحة"}
+        
         results = {
             "عدد الأقسام": len(dept_counts),
-            "توزيع الأقسام": dept_counts.to_dict(),
-            "أكبر قسم": dept_counts.index[0],
+            "توزيع الموظفين": dept_counts.to_dict(),
+            "أكبر قسم": str(dept_counts.index[0]),
             "عدد موظفي أكبر قسم": int(dept_counts.iloc[0]),
-            "أصغر قسم": dept_counts.index[-1],
+            "أصغر قسم": str(dept_counts.index[-1]),
             "عدد موظفي أصغر قسم": int(dept_counts.iloc[-1]),
             "متوسط الموظفين بالقسم": float(dept_counts.mean())
         }
@@ -124,8 +142,8 @@ class HRAnalyzer:
         
         results = {
             "متوسط الأداء": float(performance.mean()),
-            "أعلى تقييم": float(performance.max()),
-            "أقل تقييم": float(performance.min()),
+            "أعلى أداء": float(performance.max()),
+            "أقل أداء": float(performance.min()),
             "الانحراف المعياري": float(performance.std()),
             "عدد الموظفين": len(performance)
         }
@@ -136,10 +154,56 @@ class HRAnalyzer:
         average = performance[(performance >= 50) & (performance < 70)]
         poor = performance[performance < 50]
         
+        total = len(performance)
         results["ممتاز (90+)"] = len(excellent)
         results["جيد (70-89)"] = len(good)
         results["متوسط (50-69)"] = len(average)
         results["ضعيف (<50)"] = len(poor)
+        
+        # النسب المئوية
+        results["نسبة الممتاز"] = float((len(excellent) / total) * 100)
+        results["نسبة الجيد"] = float((len(good) / total) * 100)
+        results["نسبة المتوسط"] = float((len(average) / total) * 100)
+        results["نسبة الضعيف"] = float((len(poor) / total) * 100)
+        
+        return results
+    
+    def analyze_demographics(self, gender_column: str, age_column: str = None) -> Dict[str, Any]:
+        """
+        تحليل التوزيع الديموغرافي (الجنس والعمر)
+        """
+        results = {}
+        
+        # تحليل الجنس
+        if gender_column in self.data.columns:
+            gender_counts = self.data[gender_column].value_counts()
+            total = len(self.data)
+            
+            results["توزيع الجنس"] = gender_counts.to_dict()
+            results["النسب المئوية للجنس"] = {k: float((v/total)*100) for k, v in gender_counts.items()}
+            results["الإجمالي"] = total
+        else:
+            return {"error": f"العمود {gender_column} غير موجود"}
+        
+        # تحليل العمر
+        if age_column and age_column in self.data.columns:
+            age = pd.to_numeric(self.data[age_column], errors='coerce').dropna()
+            
+            if len(age) > 0:
+                results["متوسط العمر"] = float(age.mean())
+                results["وسيط العمر"] = float(age.median())
+                results["أكبر عمر"] = float(age.max())
+                results["أصغر عمر"] = float(age.min())
+                results["الانحراف المعياري للعمر"] = float(age.std())
+                
+                # تصنيف الأعمار
+                young = age[age < 30]
+                middle = age[(age >= 30) & (age < 45)]
+                senior = age[age >= 45]
+                
+                results["أقل من 30"] = len(young)
+                results["30-44"] = len(middle)
+                results["45 فأكثر"] = len(senior)
         
         return results
     
