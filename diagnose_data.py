@@ -73,7 +73,7 @@ if awards_files and bank_file:
             st.code(", ".join(df.columns.tolist()))
             
             st.markdown("**عينة من البيانات:**")
-            st.dataframe(df.head(3), width=None)
+            st.dataframe(df.head(3), width='stretch')
             
             # فحص الأعمدة المهمة
             st.markdown("**فحص الأعمدة المهمة:**")
@@ -131,7 +131,7 @@ if awards_files and bank_file:
         st.code(", ".join(bank_df.columns.tolist()))
         
         st.markdown("**عينة من البيانات:**")
-        st.dataframe(bank_df.head(3), width=None)
+        st.dataframe(bank_df.head(3), width='stretch')
         
         # فحص الأعمدة المهمة
         st.markdown("**فحص الأعمدة المهمة:**")
@@ -202,7 +202,7 @@ if awards_files and bank_file:
                 st.markdown("**أكثر 10 مبالغ تكراراً:**")
                 st.dataframe(
                     award_amounts.value_counts().head(10).reset_index(),
-                    width=None
+                    width='stretch'
                 )
             
             with col2:
@@ -217,7 +217,7 @@ if awards_files and bank_file:
                 st.markdown("**أكثر 10 مبالغ تكراراً:**")
                 st.dataframe(
                     bank_amounts.value_counts().head(10).reset_index(),
-                    width=None
+                    width='stretch'
                 )
             
             # البحث عن مبالغ مشتركة
@@ -228,7 +228,7 @@ if awards_files and bank_file:
                 st.success(f"✅ هناك {len(common_amounts):,} مبلغ مشترك بين الملفين")
                 st.dataframe(
                     pd.DataFrame(sorted(common_amounts, reverse=True)[:20], columns=['المبالغ المشتركة']),
-                    width=None
+                    width='stretch'
                 )
             else:
                 st.error("❌ لا توجد مبالغ مشتركة بين الملفين!")

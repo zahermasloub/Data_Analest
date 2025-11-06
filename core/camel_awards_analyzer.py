@@ -96,10 +96,12 @@ class CamelAwardsAnalyzer:
         """
         if pd.isna(text) or not isinstance(text, str):
             return ""
-        
+
+        # تحويل القيمة إلى نص وإزالة الفواصل السفلية كمسافات
+        text = str(text).replace('_', ' ')
         # إزالة المسافات الزائدة
-        text = re.sub(r'\s+', ' ', str(text)).strip()
-        
+        text = re.sub(r'\s+', ' ', text).strip()
+
         # توحيد Unicode (تطبيع الحروف العربية)
         text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
         text = text.replace('ة', 'ه')
@@ -110,89 +112,78 @@ class CamelAwardsAnalyzer:
         
         return text
     
-    def normalize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
+    def normalize_column_names(self, df: pd.DataFrame, context: str = "generic") -> pd.DataFrame:
         """
         توحيد أسماء الأعمدة
         
         Args:
             df: DataFrame المراد توحيد أعمدته
+            context: سياق البيانات (awards / bank / generic)
             
         Returns:
             DataFrame بأعمدة موحدة
         """
-        column_mapping = {
-            # أسماء المالك
-            'owner_name': 'OwnerName',
-            'اسم المالك': 'OwnerName',
-            'المالك': 'OwnerName',
-            'الاسم': 'OwnerName',
-            'name': 'OwnerName',
-            
-            # الموسم
-            'season': 'Season',
-            'الموسم': 'Season',
-            'موسم': 'Season',
-            
-            # السباق
-            'race': 'Race',
-            'السباق': 'Race',
-            'سباق': 'Race',
-            'race_name': 'Race',
-            'اسم السباق': 'Race',
-            
-            # المبلغ
-            'award_amount': 'AwardAmount',
-            'amount': 'AwardAmount',
-            'المبلغ': 'AwardAmount',
-            'مبلغ': 'AwardAmount',
-            'القيمة': 'AwardAmount',
-            'قيمة': 'AwardAmount',
-            'الجائزة': 'AwardAmount',
-            
-            # تاريخ الإدخال
-            'entry_date': 'EntryDate',
-            'date': 'EntryDate',
-            'التاريخ': 'EntryDate',
-            'تاريخ': 'EntryDate',
-            'تاريخ الإدخال': 'EntryDate',
-            'تاريخ السباق': 'EntryDate',
-            
-            # بيانات البنك
-            'bank_name': 'BankName',
-            'اسم المستفيد': 'BankName',
-            'المستفيد': 'BankName',
-            'beneficiary': 'BankName',
-            
-            'bank_date': 'BankDate',
-            'تاريخ التحويل': 'BankDate',
-            'تاريخ الدفع': 'BankDate',
-            'payment_date': 'BankDate',
-            
-            'bank_amount': 'BankAmount',
-            'مبلغ التحويل': 'BankAmount',
-            'payment_amount': 'BankAmount',
-            
-            'bank_reference': 'BankReference',
-            'reference': 'BankReference',
-            'المرجع': 'BankReference',
-            'رقم المرجع': 'BankReference',
-            'رقم العملية': 'BankReference',
-        }
-        
         df_copy = df.copy()
-        
-        # تطبيع أسماء الأعمدة الحالية
         df_copy.columns = [self.normalize_text(col) for col in df_copy.columns]
-        
-        # تطبيق الخريطة
-        normalized_columns = {}
-        for old_name, new_name in column_mapping.items():
-            old_name_normalized = self.normalize_text(old_name)
-            if old_name_normalized in df_copy.columns:
-                normalized_columns[old_name_normalized] = new_name
-        
-        df_copy.rename(columns=normalized_columns, inplace=True)
-        
+
+        def canonical(label: str) -> str:
+            return self.normalize_text(label).replace(' ', '')
+
+        # مجموعات الأسماء الشائعة
+        base_groups = {
+            'Season': ['season', 'الموسم', 'موسم'],
+            'Race': ['race', 'السباق', 'سباق', 'race name', 'اسم السباق'],
+            'AwardAmount': ['award amount', 'awardamount', 'amount', 'المبلغ', 'مبلغ', 'القيمة', 'الجائزة', 'value'],
+            'EntryDate': ['entrydate', 'entry date', 'date', 'التاريخ', 'تاريخ', 'تاريخ الإدخال', 'تاريخ السباق']
+        }
+
+        awards_groups = {
+            'OwnerName': ['ownername', 'اسم المالك', 'المالك', 'الاسم', 'owner name']
+        }
+
+        bank_groups = {
+            'BankName': ['bankname', 'اسم المستفيد', 'المستفيد', 'beneficiary', 'beneficiary name', 'name', 'ownername'],
+            'BankAmount': ['bankamount', 'مبلغ التحويل', 'payment amount', 'amount', 'debit', 'credit'],
+            'BankDate': ['bankdate', 'تاريخ التحويل', 'تاريخ الدفع', 'payment date', 'transaction date'],
+            'BankReference': ['bankreference', 'reference', 'المرجع', 'رقم المرجع', 'رقم العملية', 'request reference', 'bank ref', 'award ref', 'award ref 10 digits']
+        }
+
+        def build_mapping(groups: Dict[str, List[str]]) -> Dict[str, str]:
+            mapping: Dict[str, str] = {}
+            for target, aliases in groups.items():
+                for alias in aliases:
+                    mapping[canonical(alias)] = target
+            return mapping
+
+        mapping = build_mapping(base_groups)
+
+        if context == 'awards':
+            mapping.update(build_mapping(awards_groups))
+        elif context == 'bank':
+            mapping.update(build_mapping(bank_groups))
+        else:
+            mapping.update(build_mapping(awards_groups))
+            mapping.update(build_mapping(bank_groups))
+
+        rename_map: Dict[str, str] = {}
+        for col in df_copy.columns:
+            key = canonical(col)
+            if key in mapping:
+                rename_map[col] = mapping[key]
+
+        df_copy.rename(columns=rename_map, inplace=True)
+
+        # معالجة خاصة لسياق البنك: التأكد من تسمية الأعمدة الحرجة
+        if context == 'bank':
+            if 'BankName' not in df_copy.columns and 'OwnerName' in df_copy.columns:
+                df_copy.rename(columns={'OwnerName': 'BankName'}, inplace=True)
+
+            if 'BankDate' not in df_copy.columns:
+                for fallback in ['transaction date', 'value date']:
+                    if fallback in df_copy.columns:
+                        df_copy.rename(columns={fallback: 'BankDate'}, inplace=True)
+                        break
+
         return df_copy
     
     def load_awards_files(self, files: List[Any]) -> pd.DataFrame:
@@ -219,7 +210,7 @@ class CamelAwardsAnalyzer:
                     df = pd.read_excel(file)
                 
                 # توحيد الأعمدة
-                df = self.normalize_column_names(df)
+                df = self.normalize_column_names(df, context="awards")
                 
                 all_data.append(df)
                 
@@ -270,12 +261,50 @@ class CamelAwardsAnalyzer:
                 if file.name.endswith('.csv'):
                     df = pd.read_csv(file)
                 else:
-                    df = pd.read_excel(file)
+                    # محاولة قراءة من صفوف مختلفة (في حال كانت headers في صف غير الأول)
+                    df = pd.read_excel(file, header=None)
+                    
+                    # البحث عن الصف الذي يحتوي على headers
+                    header_row = 0
+                    for i in range(min(10, len(df))):
+                        row_values = df.iloc[i].astype(str).str.lower()
+                        if any('name' in str(v) or 'اسم' in str(v) or 'amount' in str(v) or 'مبلغ' in str(v) for v in row_values):
+                            header_row = i
+                            break
+                    
+                    # إعادة قراءة الملف مع الـ header الصحيح
+                    if header_row > 0:
+                        df = pd.read_excel(file, header=header_row)
+                    else:
+                        df = pd.read_excel(file)
             else:
                 df = pd.read_excel(file)
             
             # توحيد الأعمدة
-            df = self.normalize_column_names(df)
+            df = self.normalize_column_names(df, context="bank")
+
+            # إنشاء عمود المبلغ البنكي إذا لم يتم إيجاده مباشرة
+            if 'BankAmount' not in df.columns:
+                debit_col = None
+                credit_col = None
+                for col in df.columns:
+                    if col.lower() == 'debit':
+                        debit_col = col
+                    elif col.lower() == 'credit':
+                        credit_col = col
+                if debit_col and credit_col:
+                    df['BankAmount'] = df[debit_col].fillna(0) - df[credit_col].fillna(0)
+                elif debit_col:
+                    df['BankAmount'] = df[debit_col]
+                elif credit_col:
+                    df['BankAmount'] = df[credit_col]
+
+            # تعيين تاريخ البنك من أعمدة بديلة إذا لزم الأمر
+            if 'BankDate' not in df.columns:
+                for fallback in ['Transaction Date', 'Value Date']:
+                    if fallback in df.columns:
+                        df.rename(columns={fallback: 'BankDate'}, inplace=True)
+                        break
             
             self.bank_data = df
             
