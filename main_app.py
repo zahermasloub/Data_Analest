@@ -579,7 +579,7 @@ elif main_page == "📤 تحليل الملفات":
             
             # معاينة البيانات
             with st.expander("👀 معاينة البيانات", expanded=True):
-                st.dataframe(df.head(10), use_container_width=True)
+                st.dataframe(df.head(10), width='stretch')
             
             # اختيار نوع التحليل
             st.divider()
@@ -609,7 +609,7 @@ elif main_page == "📤 تحليل الملفات":
                 
                 detect_fuzzy = st.checkbox("🔍 تفعيل التطابق الضبابي (Fuzzy Match)", value=True)
                 
-                if st.button("🚀 ابدأ كشف التكرارات", use_container_width=True):
+                if st.button("🚀 ابدأ كشف التكرارات", width='stretch'):
                     with st.spinner('🔍 جاري البحث عن التكرارات...'):
                         analyzer = DuplicateAnalyzer(df)
                         duplicates = analyzer.find_payment_duplicates(entity_col, amount_col)
@@ -626,7 +626,7 @@ elif main_page == "📤 تحليل الملفات":
                             with col3:
                                 st.metric("📊 النسبة", f"{len(duplicates)/len(df)*100:.2f}%")
                             
-                            st.dataframe(duplicates, use_container_width=True)
+                            st.dataframe(duplicates, width='stretch')
                             
                             # رسم بياني
                             fig = px.bar(
@@ -638,7 +638,7 @@ elif main_page == "📤 تحليل الملفات":
                                 color='count',
                                 color_continuous_scale='Blues'
                             )
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                             
                             # تصدير
                             output = io.BytesIO()
@@ -650,7 +650,7 @@ elif main_page == "📤 تحليل الملفات":
                                 data=output.getvalue(),
                                 file_name=f"duplicates_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                use_container_width=True
+                                width='stretch'
                             )
                         else:
                             st.info("ℹ️ لم يتم العثور على أي تكرارات في البيانات")
@@ -675,7 +675,7 @@ elif main_page == "📤 تحليل الملفات":
                         help="يمكنك اختيار أكثر من طريقة"
                     )
                     
-                    if st.button("🚀 ابدأ كشف الانحرافات", use_container_width=True):
+                    if st.button("🚀 ابدأ كشف الانحرافات", width='stretch'):
                         with st.spinner('📉 جاري تحليل البيانات...'):
                             detector = AnomalyDetector(df)
                             
@@ -708,7 +708,7 @@ elif main_page == "📤 تحليل الملفات":
                                     st.metric("🔬 عدد الطرق", len(methods))
                                 
                                 # عرض البيانات
-                                st.dataframe(all_anomalies, use_container_width=True)
+                                st.dataframe(all_anomalies, width='stretch')
                                 
                                 # رسم بياني
                                 fig = px.scatter(
@@ -720,7 +720,7 @@ elif main_page == "📤 تحليل الملفات":
                                     labels={analysis_col: 'القيمة', 'index': 'الصف'},
                                     color_discrete_sequence=px.colors.qualitative.Set2
                                 )
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, width='stretch')
                                 
                                 # تصدير
                                 output = io.BytesIO()
@@ -732,7 +732,7 @@ elif main_page == "📤 تحليل الملفات":
                                     data=output.getvalue(),
                                     file_name=f"anomalies_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    use_container_width=True
+                                    width='stretch'
                                 )
                             else:
                                 st.info("ℹ️ لم يتم العثور على أي انحرافات في البيانات")
@@ -756,7 +756,7 @@ elif main_page == "📤 تحليل الملفات":
                         stats_df = df[selected_cols].describe().T
                         stats_df['cv'] = (stats_df['std'] / stats_df['mean'] * 100).round(2)
                         
-                        st.dataframe(stats_df, use_container_width=True)
+                        st.dataframe(stats_df, width='stretch')
                         
                         # رسومات بيانية
                         for col in selected_cols[:3]:  # أول 3 أعمدة
@@ -769,7 +769,7 @@ elif main_page == "📤 تحليل الملفات":
                                     title=f'📊 توزيع {col}',
                                     color_discrete_sequence=['#2193b0']
                                 )
-                                st.plotly_chart(fig_hist, use_container_width=True)
+                                st.plotly_chart(fig_hist, width='stretch')
                             
                             with col2:
                                 fig_box = px.box(
@@ -778,7 +778,7 @@ elif main_page == "📤 تحليل الملفات":
                                     title=f'📦 صندوق {col}',
                                     color_discrete_sequence=['#6dd5ed']
                                 )
-                                st.plotly_chart(fig_box, use_container_width=True)
+                                st.plotly_chart(fig_box, width='stretch')
                 else:
                     st.warning("⚠️ لا توجد أعمدة رقمية في البيانات")
             
@@ -838,7 +838,7 @@ elif main_page == "✅ نتائج الفحوصات":
                 marker_colors=['#2ecc71', '#3498db', '#f39c12']
             )])
             fig.update_layout(title="📊 توزيع الحالة", height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
     
     # نتائج الفحوصات
     with result_tabs[1]:
@@ -849,7 +849,7 @@ elif main_page == "✅ نتائج الفحوصات":
             "الوقت": ["0.5s", "2.3s", "1.8s", "3.2s", "0.4s", "1.1s"]
         })
         
-        st.dataframe(test_data, use_container_width=True, hide_index=True)
+        st.dataframe(test_data, width='stretch', hide_index=True)
         
         # رسم بياني للأوقات
         fig = px.bar(
@@ -859,7 +859,7 @@ elif main_page == "✅ نتائج الفحوصات":
             title="⏱️ أوقات تنفيذ الفحوصات",
             color_discrete_sequence=['#2193b0']
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     # الإصلاحات
     with result_tabs[2]:
@@ -872,7 +872,7 @@ elif main_page == "✅ نتائج الفحوصات":
             "الأولوية": ["عالية", "عالية"]
         })
         
-        st.dataframe(fixes_data, use_container_width=True, hide_index=True)
+        st.dataframe(fixes_data, width='stretch', hide_index=True)
         
         st.markdown("""
         <div class="info-box">
@@ -898,7 +898,7 @@ elif main_page == "✅ نتائج الفحوصات":
                 textposition='auto',
             ))
             stats_fig.update_layout(title="📊 الإحصائيات الرئيسية", height=400)
-            st.plotly_chart(stats_fig, use_container_width=True)
+            st.plotly_chart(stats_fig, width='stretch')
         
         with col2:
             issues_fig = go.Figure()
@@ -910,7 +910,7 @@ elif main_page == "✅ نتائج الفحوصات":
                 textposition='auto',
             ))
             issues_fig.update_layout(title="🔍 التكرارات والانحرافات", height=400)
-            st.plotly_chart(issues_fig, use_container_width=True)
+            st.plotly_chart(issues_fig, width='stretch')
 
 # ==================== دليل الاستخدام ====================
 elif main_page == "📚 دليل الاستخدام":
@@ -1026,7 +1026,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
             
             # عرض أول 5 صفوف
             with st.expander("👁️ معاينة البيانات"):
-                st.dataframe(hr_df.head(), use_container_width=True)
+                st.dataframe(hr_df.head(), width='stretch')
             
             # تحديد الأعمدة المتاحة
             columns = hr_df.columns.tolist()
@@ -1081,7 +1081,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                                 labels={salary_col: "الراتب"}
                             )
                             fig.update_layout(showlegend=False)
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                         else:
                             st.error(results['error'])
             
@@ -1118,7 +1118,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                                 title="📊 توزيع الحضور",
                                 labels={attendance_col: "أيام الحضور"}
                             )
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                         else:
                             st.error(results['error'])
             
@@ -1152,7 +1152,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                                 y='عدد الموظفين',
                                 title="📊 توزيع الموظفين حسب الأقسام"
                             )
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                         else:
                             st.error(results['error'])
             
@@ -1192,7 +1192,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                                 names='المستوى',
                                 title="📊 توزيع مستويات الأداء"
                             )
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                         else:
                             st.error(results['error'])
             
@@ -1242,7 +1242,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                     
                     if st.button("🔍 تحليل الفجوات"):
                         result = hr_analyzer.find_salary_gaps(salary_col_adv, dept_col_adv)
-                        st.dataframe(result, use_container_width=True)
+                        st.dataframe(result, width='stretch')
                 
                 elif analysis_type == "الموظفين المتميزين":
                     perf_col_adv = st.selectbox("عمود الأداء:", columns, key="perf_adv")
@@ -1250,7 +1250,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                     
                     if st.button("🔍 عرض المتميزين"):
                         result = hr_analyzer.find_high_performers(perf_col_adv, threshold_adv)
-                        st.dataframe(result, use_container_width=True)
+                        st.dataframe(result, width='stretch')
                 
                 else:  # مخاطر ترك العمل
                     col1, col2 = st.columns(2)
@@ -1259,7 +1259,7 @@ elif main_page == "👥 تحليل الموارد البشرية":
                     
                     if st.button("🔍 تقييم المخاطر"):
                         result = hr_analyzer.calculate_turnover_risk(sat_col, perf_col2)
-                        st.dataframe(result, use_container_width=True)
+                        st.dataframe(result, width='stretch')
         
         except Exception as e:
             st.error(f"❌ خطأ في قراءة الملف: {str(e)}")
@@ -1361,7 +1361,7 @@ elif main_page == "🔧 فحوصات مخصصة":
                 params['min_value'] = col1.number_input("القيمة الدنيا:", value=0.0)
                 params['max_value'] = col2.number_input("القيمة العليا:", value=100.0)
             
-            submitted = st.form_submit_button("💾 حفظ الفحص", use_container_width=True)
+            submitted = st.form_submit_button("💾 حفظ الفحص", width='stretch')
             
             if submitted:
                 if test_name and test_desc and column_name:
@@ -1438,7 +1438,7 @@ elif main_page == "🔧 فحوصات مخصصة":
                 else:
                     st.markdown(f"**📊 عدد الفحوصات المفعلة:** {len(enabled_tests)}")
                     
-                    if st.button("▶️ تشغيل جميع الفحوصات", use_container_width=True):
+                    if st.button("▶️ تشغيل جميع الفحوصات", width='stretch'):
                         with st.spinner("جاري تشغيل الفحوصات..."):
                             results_list = []
                             

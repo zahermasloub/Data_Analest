@@ -71,7 +71,7 @@ st.markdown("""
 
 # الشريط الجانبي
 with st.sidebar:
-    st.image("https://via.placeholder.com/300x100/1f77b4/ffffff?text=Data+Analest", use_container_width=True)
+    st.image("https://via.placeholder.com/300x100/1f77b4/ffffff?text=Data+Analest", width='stretch')
     st.title("📋 القائمة")
     
     page = st.radio(
@@ -200,7 +200,7 @@ if page == "📊 نظرة عامة":
             height=300,
             showlegend=True
         )
-        st.plotly_chart(fig_status, use_container_width=True)
+        st.plotly_chart(fig_status, width='stretch')
 
 # ==================== صفحة نتائج الفحوصات ====================
 elif page == "✅ نتائج الفحوصات":
@@ -210,7 +210,7 @@ elif page == "✅ نتائج الفحوصات":
     # جدول النتائج
     st.dataframe(
         df_tests,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         column_config={
             "الفحص": st.column_config.TextColumn("الفحص", width="medium"),
@@ -235,7 +235,7 @@ elif page == "✅ نتائج الفحوصات":
             color_discrete_sequence=['#1f77b4']
         )
         fig_time.update_layout(height=400)
-        st.plotly_chart(fig_time, use_container_width=True)
+        st.plotly_chart(fig_time, width='stretch')
     
     with col2:
         # رسم بياني دائري للحالة
@@ -251,7 +251,7 @@ elif page == "✅ نتائج الفحوصات":
             height=400,
             annotations=[dict(text='100%', x=0.5, y=0.5, font_size=40, showarrow=False)]
         )
-        st.plotly_chart(fig_status, use_container_width=True)
+        st.plotly_chart(fig_status, width='stretch')
     
     # تفاصيل كل فحص
     st.markdown("### 📝 تفاصيل الفحوصات")
@@ -295,7 +295,7 @@ import config
             "الشذوذات": [0, 0, 2855, 3],
             "الحالة": ["✅", "✅", "✅", "✅"]
         })
-        st.dataframe(methods_data, hide_index=True, use_container_width=True)
+        st.dataframe(methods_data, hide_index=True, width='stretch')
     
     with st.expander("5️⃣ فحص الإحصائيات", expanded=False):
         st.success("✅ جميع الإحصائيات صحيحة")
@@ -323,7 +323,7 @@ elif page == "🔧 الإصلاحات":
     # جدول الإصلاحات
     st.dataframe(
         df_fixes,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         column_config={
             "الملف": st.column_config.TextColumn("الملف", width="medium"),
@@ -431,7 +431,7 @@ elif page == "📈 التحليلات":
             yaxis_title="القيمة",
             height=400
         )
-        st.plotly_chart(fig_stats, use_container_width=True)
+        st.plotly_chart(fig_stats, width='stretch')
     
     with col2:
         # رسم بياني للتكرارات والانحرافات
@@ -448,13 +448,13 @@ elif page == "📈 التحليلات":
             yaxis_title="العدد",
             height=400
         )
-        st.plotly_chart(fig_issues, use_container_width=True)
+        st.plotly_chart(fig_issues, width='stretch')
     
     # جدول الإحصائيات
     st.markdown("### 📊 جدول الإحصائيات التفصيلي")
     st.dataframe(
         df_stats,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         column_config={
             "المقياس": st.column_config.TextColumn("المقياس", width="medium"),
@@ -487,7 +487,7 @@ elif page == "📈 التحليلات":
         height=500,
         showlegend=True
     )
-    st.plotly_chart(fig_dist, use_container_width=True)
+    st.plotly_chart(fig_dist, width='stretch')
 
 # ==================== صفحة التحميلات ====================
 elif page == "📥 التحميلات":
@@ -509,7 +509,7 @@ elif page == "📥 التحميلات":
             data=tests_excel,
             file_name="test_results.csv",
             mime="text/csv",
-            use_container_width=True
+            width='stretch'
         )
     
     with col2:
@@ -522,7 +522,7 @@ elif page == "📥 التحميلات":
             data=fixes_excel,
             file_name="fixes_report.csv",
             mime="text/csv",
-            use_container_width=True
+            width='stretch'
         )
     
     with col3:
@@ -535,7 +535,7 @@ elif page == "📥 التحميلات":
             data=stats_excel,
             file_name="statistics_report.csv",
             mime="text/csv",
-            use_container_width=True
+            width='stretch'
         )
     
     st.divider()
@@ -585,7 +585,7 @@ elif page == "📥 التحميلات":
         data=json_data,
         file_name="full_report.json",
         mime="application/json",
-        use_container_width=True
+        width='stretch'
     )
     
     st.markdown("### 👀 معاينة JSON")

@@ -237,7 +237,7 @@ class UIComponents:
                 mask = df.astype(str).apply(lambda x: x.str.contains(search, case=False, na=False)).any(axis=1)
                 df = df[mask]
         
-        st.dataframe(df, use_container_width=True, height=max_height)
+        st.dataframe(df, width='stretch', height=max_height)
         
         # إحصائيات سريعة
         col1, col2, col3 = st.columns(3)
@@ -258,7 +258,7 @@ class UIComponents:
             {f'<p style="opacity: 0.8; margin-bottom: 1rem;">{description}</p>' if description else ''}
         </div>
         """, unsafe_allow_html=True)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     @staticmethod
     def comparison_cards(
@@ -338,7 +338,7 @@ class UIComponents:
     @staticmethod
     def icon_button(icon: str, text: str, key: str):
         """زر مع أيقونة"""
-        return st.button(f"{icon} {text}", key=key, use_container_width=True)
+        return st.button(f"{icon} {text}", key=key, width='stretch')
     
     @staticmethod
     def empty_state(

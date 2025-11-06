@@ -715,7 +715,7 @@ class ThemeManager:
         st.markdown(button_html, unsafe_allow_html=True)
         
         # زر التبديل
-        if st.button(f"{icon} {text}", key="theme_toggle_btn", use_container_width=False):
+        if st.button(f"{icon} {text}", key="theme_toggle_btn", width='content'):
             self.toggle_theme()
 
 
