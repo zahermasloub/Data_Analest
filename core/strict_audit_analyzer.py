@@ -189,12 +189,13 @@ class StrictAuditAnalyzer:
             if field in df_normalized.columns:
                 df_normalized[f'{field}_normalized'] = df_normalized[field].apply(self.normalize_text)
         
-        # Create composite key (using normalized values)
+        # Create composite key (5 fields - WITHOUT OwnerName)
+        # المفتاح المركب: الموسم|السباق|رقم المشارك|رقم البطاقة|المبلغ
+        # الاعتماد الأساسي على رقم المشارك (OwnerNumber) وليس الاسم
         df_normalized['_CompositeKey'] = (
             df_normalized['Season'].astype(str).str.strip().str.lower() + '|' +
             df_normalized['Race'].astype(str).str.strip().str.lower() + '|' +
             df_normalized['OwnerNumber'].astype(str).str.strip() + '|' +
-            df_normalized['OwnerName'].astype(str).str.strip().str.lower() + '|' +
             df_normalized['OwnerQatariId'].astype(str).str.strip() + '|' +
             df_normalized['AwardAmount'].round(2).astype(str)
         )
@@ -215,6 +216,26 @@ class StrictAuditAnalyzer:
         
         # Add duplicate severity classification
         duplicates['_DuplicateSeverity'] = duplicates.apply(self._classify_duplicate_severity, axis=1)
+        
+        # Add name verification fields for documentation
+        # جمع جميع الأسماء المختلفة لكل مجموعة تكرار
+        if len(duplicates) > 0:
+            name_variations = duplicates.groupby('_DuplicateGroup')['OwnerName'].apply(
+                lambda x: ' | '.join(sorted(set(x.astype(str))))
+            ).to_dict()
+            
+            # إضافة عمود يحتوي على جميع اختلافات الأسماء في نفس المجموعة
+            duplicates['OwnerName_AllVariations'] = duplicates['_DuplicateGroup'].map(name_variations)
+            
+            # عدد الاختلافات في الأسماء
+            duplicates['OwnerName_VariationsCount'] = duplicates.groupby('_DuplicateGroup')['OwnerName'].transform(
+                lambda x: len(set(x.astype(str)))
+            )
+            
+            # حالة مطابقة الأسماء
+            duplicates['OwnerName_MatchStatus'] = duplicates['OwnerName_VariationsCount'].apply(
+                lambda count: '✅ متطابق' if count == 1 else f'⚠️ {count} اختلافات'
+            )
         
         # Statistics
         total_records = len(df)
@@ -474,11 +495,12 @@ class StrictAuditAnalyzer:
             print(f"   الملف: {duplicates_file.name}")
             
             with pd.ExcelWriter(duplicates_file, engine='openpyxl') as writer:
-                # Sheet 1: All duplicates with full details
+                # Sheet 1: All duplicates with full details (including name verification)
                 export_cols = [
-                    'Season', 'Race', 'OwnerNumber', 'OwnerName', 'OwnerQatariID',
+                    'Season', 'Race', 'OwnerNumber', 'OwnerName', 'OwnerQatariId',
                     'AwardAmount', 'EntryDate', 'PaymentReference', 'PaymentReference_D1',
                     '_DuplicateGroup', '_DuplicateCount', '_DuplicateSeverity',
+                    'OwnerName_AllVariations', 'OwnerName_VariationsCount', 'OwnerName_MatchStatus',
                     'SourceFile'
                 ]
                 available_cols = [col for col in export_cols if col in self.duplicates.columns]
