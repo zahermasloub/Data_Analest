@@ -1,0 +1,24 @@
+[
+  {
+    "ErrorID": "142e09ce-5831-4735-b6e0-9416df0dfd78",
+    "Timestamp": "2025-11-06T18:13:01.090120",
+    "ErrorType": "MemoryError",
+    "ErrorMessage": "Unable to allocate 33.8 GiB for an array with shape (18, 252220584) and data type float64",
+    "Context": {
+      "function": "match_with_bank",
+      "time_window_days": 7,
+      "use_record_linkage": false
+    }
+  },
+  {
+    "ErrorID": "35f2ecff-2a4f-452f-8186-3d5abd3495e0",
+    "Timestamp": "2025-11-06T18:16:58.990681",
+    "ErrorType": "KeyError",
+    "ErrorMessage": "'BankAmount'",
+    "Context": {
+      "function": "match_with_bank",
+      "time_window_days": 7,
+      "use_record_linkage": false
+    }
+  }
+]

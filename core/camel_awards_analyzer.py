@@ -143,9 +143,16 @@ class CamelAwardsAnalyzer:
 
         bank_groups = {
             'BankName': ['bankname', 'اسم المستفيد', 'المستفيد', 'beneficiary', 'beneficiary name', 'name', 'ownername'],
-            'BankAmount': ['bankamount', 'مبلغ التحويل', 'payment amount', 'amount', 'debit', 'credit'],
+            'BankAmount': ['bankamount', 'مبلغ التحويل', 'payment amount', 'amount', 'القيمة', 'value'],
+            'BankDebit': ['bankdebit', 'debit', 'debitamount', 'debit amount', 'مدين'],
+            'BankCredit': ['bankcredit', 'credit', 'creditamount', 'credit amount', 'دائن'],
             'BankDate': ['bankdate', 'تاريخ التحويل', 'تاريخ الدفع', 'payment date', 'transaction date'],
-            'BankReference': ['bankreference', 'reference', 'المرجع', 'رقم المرجع', 'رقم العملية', 'request reference', 'bank ref', 'award ref', 'award ref 10 digits']
+            'BankValueDate': ['value date', 'valuedate'],
+            'BankReference': ['bankreference', 'bank ref'],
+            'BankRequestReference': ['request reference'],
+            'BankOperationReference': ['reference', 'المرجع', 'رقم المرجع', 'رقم العملية'],
+            'AwardReference': ['award ref', 'award reference'],
+            'AwardReferenceLong': ['award ref 10 digits', 'award ref 10digits', 'award reference 10 digits']
         }
 
         def build_mapping(groups: Dict[str, List[str]]) -> Dict[str, str]:
@@ -283,28 +290,65 @@ class CamelAwardsAnalyzer:
             # توحيد الأعمدة
             df = self.normalize_column_names(df, context="bank")
 
-            # إنشاء عمود المبلغ البنكي إذا لم يتم إيجاده مباشرة
-            if 'BankAmount' not in df.columns:
-                debit_col = None
-                credit_col = None
+            # الحفاظ على أعمدة المدين والدائن لاستخدامها في اشتقاق المبلغ
+            bank_debit = None
+            bank_credit = None
+
+            if 'BankDebit' in df.columns:
+                df['BankDebit'] = pd.to_numeric(df['BankDebit'], errors='coerce')
+                bank_debit = df['BankDebit']
+            else:
                 for col in df.columns:
-                    if col.lower() == 'debit':
-                        debit_col = col
-                    elif col.lower() == 'credit':
-                        credit_col = col
-                if debit_col and credit_col:
-                    df['BankAmount'] = df[debit_col].fillna(0) - df[credit_col].fillna(0)
-                elif debit_col:
-                    df['BankAmount'] = df[debit_col]
-                elif credit_col:
-                    df['BankAmount'] = df[credit_col]
+                    if str(col).lower() == 'debit':
+                        bank_debit = pd.to_numeric(df[col], errors='coerce')
+                        df['BankDebit'] = bank_debit
+                        break
+
+            if 'BankCredit' in df.columns:
+                df['BankCredit'] = pd.to_numeric(df['BankCredit'], errors='coerce')
+                bank_credit = df['BankCredit']
+            else:
+                for col in df.columns:
+                    if str(col).lower() == 'credit':
+                        bank_credit = pd.to_numeric(df[col], errors='coerce')
+                        df['BankCredit'] = bank_credit
+                        break
+
+            # إنشاء عمود المبلغ البنكي أو اشتقاقه من المدين والدائن
+            has_bank_amount = 'BankAmount' in df.columns
+            if has_bank_amount:
+                existing_amount = pd.to_numeric(df['BankAmount'], errors='coerce')
+                if existing_amount.notna().any():
+                    df['BankAmount'] = existing_amount
+                else:
+                    df.drop(columns=['BankAmount'], inplace=True)
+                    has_bank_amount = False
+
+            if not has_bank_amount:
+                computed_amount = None
+                if bank_debit is not None and bank_credit is not None:
+                    computed_amount = bank_debit.fillna(0) - bank_credit.fillna(0)
+                elif bank_debit is not None:
+                    computed_amount = bank_debit
+                elif bank_credit is not None:
+                    computed_amount = bank_credit
+
+                if computed_amount is not None:
+                    df['BankAmount'] = computed_amount
+
+            if 'BankAmount' in df.columns:
+                df['BankAmount'] = pd.to_numeric(df['BankAmount'], errors='coerce')
 
             # تعيين تاريخ البنك من أعمدة بديلة إذا لزم الأمر
             if 'BankDate' not in df.columns:
-                for fallback in ['Transaction Date', 'Value Date']:
-                    if fallback in df.columns:
-                        df.rename(columns={fallback: 'BankDate'}, inplace=True)
-                        break
+                if 'BankValueDate' in df.columns:
+                    df['BankDate'] = df['BankValueDate']
+                else:
+                    lower_map = {str(col).lower(): col for col in df.columns}
+                    for fallback in ['transaction date', 'value date']:
+                        if fallback in lower_map:
+                            df['BankDate'] = df[lower_map[fallback]]
+                            break
             
             self.bank_data = df
             
@@ -319,13 +363,29 @@ class CamelAwardsAnalyzer:
                     errors='coerce',
                     dayfirst=True
                 )
+            if 'BankValueDate' in self.bank_data.columns:
+                self.bank_data['BankValueDate'] = pd.to_datetime(
+                    self.bank_data['BankValueDate'],
+                    errors='coerce',
+                    dayfirst=True
+                )
             
             # تحويل المبالغ لأرقام
             if 'BankAmount' in self.bank_data.columns:
+                amount_data = self.bank_data['BankAmount']
+                if isinstance(amount_data, pd.DataFrame):
+                    amount_data = amount_data.iloc[:, 0]
                 self.bank_data['BankAmount'] = pd.to_numeric(
-                    self.bank_data['BankAmount'], 
+                    amount_data,
                     errors='coerce'
                 )
+
+            for col in ['BankDebit', 'BankCredit']:
+                if col in self.bank_data.columns:
+                    col_data = self.bank_data[col]
+                    if isinstance(col_data, pd.DataFrame):
+                        col_data = col_data.iloc[:, 0]
+                    self.bank_data[col] = pd.to_numeric(col_data, errors='coerce')
             
             return self.bank_data
             
@@ -515,54 +575,302 @@ class CamelAwardsAnalyzer:
                 results.append(result)
                 continue
             
-            # البحث في كشف البنك
-            best_match = None
-            best_score = 0
-            
-            for _, bank_row in self.bank_data.iterrows():
-                bank_amount = bank_row.get('BankAmount', 0)
-                bank_date = bank_row.get('BankDate', None)
-                bank_name = bank_row.get('BankName_norm', '')
-                
-                if pd.isna(bank_amount) or pd.isna(bank_date):
-                    continue
-                
-                # تحقق من المبلغ
-                if abs(award_amount - bank_amount) > 0.01:
-                    continue
-                
-                # تحقق من النافذة الزمنية
-                date_diff = abs((entry_date - bank_date).days)
-                if date_diff > time_window_days:
-                    continue
-                
-                # الطبقة 1: مطابقة تامة
-                if owner_name == bank_name:
-                    best_match = bank_row
-                    best_score = 100
-                    result['MatchType'] = 'Exact'
-                    break
-                
-                # الطبقة 2: مطابقة ضبابية
-                fuzzy_score = fuzz.ratio(owner_name, bank_name)
-                if fuzzy_score >= 90 and fuzzy_score > best_score:
-                    best_match = bank_row
-                    best_score = fuzzy_score
-                    result['MatchType'] = 'Fuzzy'
-            
-            if best_match is not None:
-                result['BankDate'] = best_match.get('BankDate', None)
-                result['BankReference'] = best_match.get('BankReference', '')
-                result['MatchScore'] = best_score
-                result['StatusFlag'] = '✅'
-                result['ReasonText'] = f'مطابقة بنسبة {best_score}%'
-            else:
-                result['StatusFlag'] = '⚠️'
-                result['ReasonText'] = 'لم يتم العثور على مطابقة في كشف البنك'
-            
-            results.append(result)
+    def _basic_matching(self, time_window_days: int) -> pd.DataFrame:
+        """
+        المطابقة الأساسية المحسّنة (Reference-based + Fuzzy fallback)
+        تستخدم merge على Reference Number للأداء العالي
+        """
+        print(f"   🚀 استخدام خوارزمية محسّنة (reference-based matching)")
         
-        return pd.DataFrame(results)
+        # تنظيف البيانات
+        awards_clean = self.awards_data[
+            self.awards_data['AwardAmount'].notna() & 
+            self.awards_data['EntryDate'].notna()
+        ].copy()
+        
+        bank_clean = self.bank_data[
+            self.bank_data['BankAmount'].notna() & 
+            self.bank_data['BankDate'].notna()
+        ].copy()
+        
+        # إضافة مؤشر للجوائز للحفاظ على الترتيب
+        awards_clean['_award_idx'] = range(len(awards_clean))
+        bank_clean['_bank_idx'] = range(len(bank_clean))
+        
+        # الطبقة 1: مطابقة بواسطة Reference Number
+        print(f"   🔑 المطابقة بواسطة Reference Number...")
+        matched_results = []
+        
+        # إعداد عمود Reference في الجوائز
+        if 'paymentreference' in awards_clean.columns:
+            awards_clean['AwardRef'] = awards_clean['paymentreference'].astype(str).str.strip()
+        else:
+            awards_clean['AwardRef'] = ''
+        
+        # تصفية الجوائز التي لها reference فقط
+        awards_with_ref = awards_clean[
+            awards_clean['AwardRef'].notna() & 
+            (awards_clean['AwardRef'] != '') & 
+            (awards_clean['AwardRef'] != 'nan')
+        ].copy()
+        
+        print(f"      📋 {len(awards_with_ref):,} جائزة لديها Reference Number")
+        
+        # محاولة المطابقة مع AwardReferenceLong أولاً (أعلى نسبة تطابق)
+        if len(awards_with_ref) > 0 and 'AwardReferenceLong' in bank_clean.columns:
+            bank_clean['BankRef'] = bank_clean['AwardReferenceLong'].astype(str).str.strip()
+            
+            # تصفية البنك للسجلات التي لها reference فقط
+            bank_with_ref = bank_clean[
+                bank_clean['BankRef'].notna() & 
+                (bank_clean['BankRef'] != '') & 
+                (bank_clean['BankRef'] != 'nan')
+            ].copy()
+            
+            print(f"      📋 {len(bank_with_ref):,} معاملة بنكية لديها AwardReferenceLong")
+            
+            # إيجاد References المشتركة فقط
+            common_refs = set(awards_with_ref['AwardRef'].unique()).intersection(
+                set(bank_with_ref['BankRef'].unique())
+            )
+            
+            print(f"      🔗 {len(common_refs):,} Reference مشترك بين الملفين")
+            
+            if len(common_refs) > 0:
+                # تصفية البيانات للـ references المشتركة فقط
+                awards_filtered = awards_with_ref[awards_with_ref['AwardRef'].isin(common_refs)]
+                bank_filtered = bank_with_ref[bank_with_ref['BankRef'].isin(common_refs)]
+                
+                ref_merge = pd.merge(
+                    awards_filtered,
+                    bank_filtered,
+                    left_on='AwardRef',
+                    right_on='BankRef',
+                    how='inner',
+                    suffixes=('', '_bank')
+                )
+            
+            if len(ref_merge) > 0:
+                # تصفية حسب النافذة الزمنية
+                ref_merge['_date_diff'] = (ref_merge['EntryDate'] - ref_merge['BankDate']).dt.days.abs()
+                ref_merge = ref_merge[ref_merge['_date_diff'] <= time_window_days]
+                
+                if len(ref_merge) > 0:
+                    # التحقق من تطابق المبلغ
+                    ref_merge['_amount_diff'] = (ref_merge['AwardAmount'] - ref_merge['BankAmount']).abs()
+                    ref_merge['_amount_match'] = ref_merge['_amount_diff'] < 0.01
+                    
+                    ref_merge['MatchType'] = ref_merge['_amount_match'].apply(
+                        lambda x: 'Reference-Exact' if x else 'Reference-Diff'
+                    )
+                    ref_merge['MatchScore'] = ref_merge.apply(
+                        lambda row: 100 if row['_amount_match'] else 95, axis=1
+                    )
+                    ref_merge['StatusFlag'] = ref_merge['_amount_match'].apply(
+                        lambda x: '✅' if x else '⚠️'
+                    )
+                    ref_merge['ReasonText'] = ref_merge.apply(
+                        lambda row: 'مطابقة بواسطة Reference (AwardReferenceLong)' if row['_amount_match']
+                        else f'مطابقة Reference لكن المبلغ مختلف بـ {row["_amount_diff"]:.2f}',
+                        axis=1
+                    )
+                    matched_results.append(ref_merge)
+                    print(f"      ✓ {len(ref_merge):,} مطابقة عبر AwardReferenceLong")
+        
+        # محاولة المطابقة مع AwardReference للسجلات المتبقية
+        matched_award_idx = set()
+        if matched_results:
+            for df in matched_results:
+                matched_award_idx.update(df['_award_idx'].tolist())
+        
+        unmatched_awards = awards_clean[~awards_clean['_award_idx'].isin(matched_award_idx)].copy()
+        
+        # تصفية السجلات التي لها reference
+        unmatched_with_ref = unmatched_awards[
+            unmatched_awards['AwardRef'].notna() & 
+            (unmatched_awards['AwardRef'] != '') & 
+            (unmatched_awards['AwardRef'] != 'nan')
+        ].copy()
+        
+        if len(unmatched_with_ref) > 0 and 'AwardReference' in bank_clean.columns:
+            bank_clean['BankRef2'] = bank_clean['AwardReference'].astype(str).str.strip()
+            
+            bank_with_ref2 = bank_clean[
+                bank_clean['BankRef2'].notna() & 
+                (bank_clean['BankRef2'] != '') & 
+                (bank_clean['BankRef2'] != 'nan')
+            ].copy()
+            
+            # إيجاد References المشتركة
+            common_refs2 = set(unmatched_with_ref['AwardRef'].unique()).intersection(
+                set(bank_with_ref2['BankRef2'].unique())
+            )
+            
+            if len(common_refs2) > 0:
+                print(f"      🔗 {len(common_refs2):,} Reference مشترك إضافي في AwardReference")
+                
+                awards_filtered2 = unmatched_with_ref[unmatched_with_ref['AwardRef'].isin(common_refs2)]
+                bank_filtered2 = bank_with_ref2[bank_with_ref2['BankRef2'].isin(common_refs2)]
+                
+                ref_merge2 = pd.merge(
+                    awards_filtered2,
+                    bank_filtered2,
+                    left_on='AwardRef',
+                    right_on='BankRef2',
+                    how='inner',
+                    suffixes=('', '_bank')
+                )
+            
+            if len(ref_merge2) > 0:
+                ref_merge2['_date_diff'] = (ref_merge2['EntryDate'] - ref_merge2['BankDate']).dt.days.abs()
+                ref_merge2 = ref_merge2[ref_merge2['_date_diff'] <= time_window_days]
+                
+                if len(ref_merge2) > 0:
+                    ref_merge2['MatchType'] = 'Reference'
+                    ref_merge2['MatchScore'] = 100
+                    ref_merge2['StatusFlag'] = '✅'
+                    ref_merge2['ReasonText'] = 'مطابقة بواسطة Reference (AwardReference)'
+                    matched_results.append(ref_merge2)
+                    print(f"      ✓ {len(ref_merge2):,} مطابقة عبر AwardReference")
+        
+        # الطبقة 2: مطابقة ضبابية على الاسم والمبلغ (للسجلات المتبقية فقط)
+        matched_award_idx = set()
+        if matched_results:
+            for df in matched_results:
+                matched_award_idx.update(df['_award_idx'].tolist())
+        
+        unmatched_awards = awards_clean[~awards_clean['_award_idx'].isin(matched_award_idx)].copy()
+        
+        fuzzy_matches = []
+        if len(unmatched_awards) > 0:
+            # تحديد عدد السجلات للمطابقة الضبابية
+            max_fuzzy = min(len(unmatched_awards), 5000)  # حد أقصى 5000 لتجنب استهلاك الذاكرة
+            
+            if len(unmatched_awards) > max_fuzzy:
+                print(f"   ⚠️ تحديد المطابقة الضبابية لـ {max_fuzzy:,} جائزة فقط (من {len(unmatched_awards):,})")
+                # اختيار أول 5000 سجل
+                unmatched_for_fuzzy = unmatched_awards.head(max_fuzzy)
+            else:
+                unmatched_for_fuzzy = unmatched_awards
+            
+            print(f"   🔍 مطابقة ضبابية لـ {len(unmatched_for_fuzzy):,} جائزة متبقية...")
+            
+            for idx, award_row in unmatched_for_fuzzy.iterrows():
+                award_amount = award_row['AwardAmount']
+                award_date = award_row['EntryDate']
+                award_name_norm = award_row.get('OwnerName_norm', '')
+                
+                # تصفية البنك حسب المبلغ والتاريخ
+                date_min = award_date - pd.Timedelta(days=time_window_days)
+                date_max = award_date + pd.Timedelta(days=time_window_days)
+                
+                candidate_bank = bank_clean[
+                    (bank_clean['BankAmount'] == award_amount) &
+                    (bank_clean['BankDate'] >= date_min) &
+                    (bank_clean['BankDate'] <= date_max)
+                ]
+                
+                if len(candidate_bank) == 0:
+                    continue
+                
+                # حساب النتيجة الضبابية
+                best_score = 0
+                best_bank_row = None
+                
+                for _, bank_row in candidate_bank.iterrows():
+                    bank_name_norm = bank_row.get('BankName_norm', '')
+                    if bank_name_norm:
+                        score = fuzz.ratio(award_name_norm, bank_name_norm)
+                        
+                        if score >= 85 and score > best_score:
+                            best_score = score
+                            best_bank_row = bank_row
+                
+                if best_bank_row is not None:
+                    fuzzy_match = award_row.to_dict()
+                    fuzzy_match.update({
+                        'BankDate': best_bank_row['BankDate'],
+                        'BankName': best_bank_row.get('BankName', ''),
+                        'BankAmount': best_bank_row['BankAmount'],
+                        'BankReference': best_bank_row.get('BankReference', ''),
+                        'MatchType': 'Fuzzy',
+                        'MatchScore': best_score,
+                        'StatusFlag': '✅',
+                        'ReasonText': f'مطابقة ضبابية بالاسم {best_score}%'
+                    })
+                    fuzzy_matches.append(fuzzy_match)
+                
+                # طباعة التقدم كل 500 سجل
+                if (len(fuzzy_matches) + 1) % 500 == 0:
+                    print(f"      معالجة: {len(fuzzy_matches):,} مطابقة ضبابية...")
+            
+            if len(fuzzy_matches) > 0:
+                print(f"      ✓ {len(fuzzy_matches):,} مطابقة ضبابية")
+        
+        # دمج النتائج
+        results_list = []
+        
+        # إضافة المطابقات بالـ Reference
+        for ref_match in matched_results:
+            ref_results = ref_match[[
+                'OwnerName', 'Race', 'Season', 'AwardAmount', 'EntryDate',
+                'BankDate', 'BankName', 'BankAmount', 'BankReference',
+                'MatchType', 'MatchScore', 'StatusFlag', 'ReasonText', '_award_idx'
+            ]].copy()
+            # إضافة عمود AwardRef إذا كان موجوداً
+            if 'AwardRef' in ref_match.columns:
+                ref_results['AwardRef'] = ref_match['AwardRef']
+            results_list.append(ref_results)
+        
+        # إضافة المطابقات الضبابية
+        if fuzzy_matches:
+            fuzzy_df = pd.DataFrame(fuzzy_matches)
+            fuzzy_results = fuzzy_df[[
+                'OwnerName', 'Race', 'Season', 'AwardAmount', 'EntryDate',
+                'BankDate', 'BankName', 'BankAmount', 'BankReference',
+                'MatchType', 'MatchScore', 'StatusFlag', 'ReasonText', '_award_idx'
+            ]].copy()
+            # إضافة عمود AwardRef إذا كان موجوداً
+            if 'AwardRef' in fuzzy_df.columns:
+                fuzzy_results['AwardRef'] = fuzzy_df['AwardRef']
+            results_list.append(fuzzy_results)
+        
+        # تحديث مؤشر الجوائز المطابقة
+        matched_award_idx = set()
+        for df in results_list:
+            matched_award_idx.update(df['_award_idx'].tolist())
+        
+        # إضافة الجوائز غير المطابقة
+        final_unmatched = awards_clean[~awards_clean['_award_idx'].isin(matched_award_idx)].copy()
+        if len(final_unmatched) > 0:
+            final_unmatched['BankDate'] = pd.NaT
+            final_unmatched['BankName'] = ''
+            final_unmatched['BankAmount'] = np.nan
+            final_unmatched['BankReference'] = ''
+            final_unmatched['MatchType'] = 'No Match'
+            final_unmatched['MatchScore'] = 0
+            final_unmatched['StatusFlag'] = '⚠️'
+            final_unmatched['ReasonText'] = 'لم يتم العثور على مطابقة في كشف البنك'
+            
+            unmatched_results = final_unmatched[[
+                'OwnerName', 'Race', 'Season', 'AwardAmount', 'EntryDate',
+                'BankDate', 'BankName', 'BankAmount', 'BankReference',
+                'MatchType', 'MatchScore', 'StatusFlag', 'ReasonText', '_award_idx'
+            ]].copy()
+            results_list.append(unmatched_results)
+        
+        # دمج كل النتائج
+        if results_list:
+            final_results = pd.concat(results_list, ignore_index=True)
+            final_results = final_results.sort_values('_award_idx').drop(columns=['_award_idx'])
+        else:
+            final_results = pd.DataFrame(columns=[
+                'OwnerName', 'Race', 'Season', 'AwardAmount', 'EntryDate',
+                'BankDate', 'BankName', 'BankAmount', 'BankReference',
+                'MatchType', 'MatchScore', 'StatusFlag', 'ReasonText'
+            ])
+        
+        return final_results
     
     def detect_internal_duplicates(self) -> pd.DataFrame:
         """
