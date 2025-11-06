@@ -591,28 +591,50 @@ elif main_page == "📤 تحليل الملفات":
             with analysis_tabs[0]:
                 st.markdown("#### 🔍 كشف الدفعات المكررة")
                 
+                st.info("💡 **اختر الحقول المطلوبة:** يمكنك اختيار عدة حقول للبحث عن التكرارات بناءً عليها")
+                
+                # اختيار الحقول المتعددة
+                selected_columns = st.multiselect(
+                    "📋 اختر الحقول للبحث عن التكرارات:",
+                    options=df.columns.tolist(),
+                    default=[df.columns[0]] if len(df.columns) > 0 else [],
+                    help="اختر حقل واحد أو أكثر. سيتم البحث عن السجلات التي تتطابق في جميع هذه الحقول"
+                )
+                
+                # خيارات إضافية
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    entity_col = st.selectbox(
-                        "🏢 عمود الجهة/الاسم:",
-                        options=df.columns.tolist(),
-                        help="اختر العمود الذي يحتوي على أسماء الجهات"
+                    detect_fuzzy = st.checkbox(
+                        "� تفعيل التطابق الضبابي",
+                        value=False,
+                        help="البحث عن أسماء متشابهة (مفيد للأخطاء الإملائية)"
                     )
                 
                 with col2:
-                    amount_col = st.selectbox(
-                        "💰 عمود المبلغ:",
-                        options=df.columns.tolist(),
-                        help="اختر العمود الذي يحتوي على المبالغ"
-                    )
-                
-                detect_fuzzy = st.checkbox("🔍 تفعيل التطابق الضبابي (Fuzzy Match)", value=True)
+                    if detect_fuzzy:
+                        fuzzy_threshold = st.slider(
+                            "نسبة التشابه المطلوبة:",
+                            min_value=70,
+                            max_value=100,
+                            value=90,
+                            step=5,
+                            help="كلما زادت النسبة، كلما كان التطابق أدق"
+                        ) / 100
+                    else:
+                        fuzzy_threshold = 0.90
                 
                 if st.button("🚀 ابدأ كشف التكرارات", width='stretch'):
-                    with st.spinner('🔍 جاري البحث عن التكرارات...'):
-                        analyzer = DuplicateAnalyzer(df)
-                        duplicates = analyzer.find_payment_duplicates(entity_col, amount_col)
+                    if not selected_columns:
+                        st.error("⚠️ يرجى اختيار حقل واحد على الأقل!")
+                    else:
+                        with st.spinner('🔍 جاري البحث عن التكرارات...'):
+                            analyzer = DuplicateAnalyzer(df)
+                            duplicates = analyzer.find_multi_field_duplicates(
+                                columns=selected_columns,
+                                fuzzy_match=detect_fuzzy,
+                                fuzzy_threshold=fuzzy_threshold
+                            )
                         
                         if len(duplicates) > 0:
                             st.success(f"✅ تم العثور على {len(duplicates):,} دفعة مكررة في {duplicates['duplicate_group'].nunique()} مجموعة")

@@ -232,6 +232,162 @@ class DuplicateAnalyzer:
         else:
             return pd.DataFrame()
     
+    def find_multi_field_duplicates(self,
+                                    columns: List[str],
+                                    fuzzy_match: bool = False,
+                                    fuzzy_threshold: float = 0.90) -> pd.DataFrame:
+        """
+        البحث عن تكرارات بناءً على عدة حقول
+        
+        Args:
+            columns: قائمة الحقول للبحث عن التكرارات بناءً عليها
+            fuzzy_match: تفعيل التطابق الضبابي للحقول النصية
+            fuzzy_threshold: عتبة التشابه للتطابق الضبابي (0-1)
+            
+        Returns:
+            DataFrame بالتكرارات المكتشفة
+        """
+        logger.info(f"البحث عن تكرارات متعددة الحقول: {columns}")
+        
+        # التحقق من وجود الأعمدة
+        missing = [col for col in columns if col not in self.df.columns]
+        if missing:
+            raise ValueError(f"الأعمدة المطلوبة غير موجودة: {missing}")
+        
+        df_work = self.df.copy()
+        
+        # إذا كان التطابق الضبابي مفعّل والعمود نصي
+        if fuzzy_match:
+            # تطبيق التطابق الضبابي للحقول النصية
+            text_columns = [col for col in columns if df_work[col].dtype == 'object']
+            
+            if text_columns:
+                logger.info(f"تطبيق التطابق الضبابي على: {text_columns}")
+                
+                # تنظيف وتطبيع الأعمدة النصية
+                for col in text_columns:
+                    df_work[f'_normalized_{col}'] = (
+                        df_work[col]
+                        .fillna('')
+                        .astype(str)
+                        .str.strip()
+                        .str.lower()
+                        .str.replace(r'\s+', ' ', regex=True)
+                    )
+                
+                # البحث عن التطابقات الضبابية
+                duplicates = self._find_fuzzy_multi_field_duplicates(
+                    df_work, columns, text_columns, fuzzy_threshold
+                )
+            else:
+                # لا توجد أعمدة نصية، استخدام التطابق التام
+                duplicates = self._find_exact_multi_field_duplicates(df_work, columns)
+        else:
+            # التطابق التام
+            duplicates = self._find_exact_multi_field_duplicates(df_work, columns)
+        
+        if len(duplicates) > 0:
+            # إضافة معلومات إضافية
+            duplicates['duplicate_count'] = duplicates.groupby('duplicate_group')['duplicate_group'].transform('count')
+            duplicates['matched_fields'] = ', '.join(columns)
+            duplicates = duplicates.sort_values(['duplicate_group'] + columns)
+            
+            # حساب الإحصائيات
+            self.stats = {
+                'total_duplicates': len(duplicates),
+                'total_groups': duplicates['duplicate_group'].nunique(),
+                'fields_checked': columns,
+                'fuzzy_enabled': fuzzy_match,
+                'fuzzy_threshold': fuzzy_threshold if fuzzy_match else None
+            }
+            
+            logger.info(f"تم العثور على {len(duplicates)} سجل مكرر في {duplicates['duplicate_group'].nunique()} مجموعة")
+        else:
+            logger.info("لم يتم العثور على أي تكرارات")
+        
+        self.duplicates = duplicates
+        return duplicates
+    
+    def _find_exact_multi_field_duplicates(self, df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
+        """البحث عن التطابق التام في عدة حقول"""
+        mask = df.duplicated(subset=columns, keep=False)
+        duplicates = df[mask].copy()
+        
+        if len(duplicates) > 0:
+            duplicates['duplicate_group'] = duplicates.groupby(columns).ngroup()
+        
+        return duplicates
+    
+    def _find_fuzzy_multi_field_duplicates(self,
+                                          df: pd.DataFrame,
+                                          columns: List[str],
+                                          text_columns: List[str],
+                                          threshold: float) -> pd.DataFrame:
+        """البحث عن التطابق الضبابي في عدة حقول"""
+        from difflib import SequenceMatcher
+        
+        fuzzy_groups = {}
+        group_id = 0
+        processed_indices = set()
+        
+        # استخدام الأعمدة المُطبّعة للمقارنة
+        normalized_cols = {col: f'_normalized_{col}' if col in text_columns else col 
+                          for col in columns}
+        
+        for idx1 in df.index:
+            if idx1 in processed_indices:
+                continue
+            
+            # إنشاء مجموعة جديدة
+            current_group = [idx1]
+            processed_indices.add(idx1)
+            
+            # البحث عن تطابقات
+            for idx2 in df.index:
+                if idx2 <= idx1 or idx2 in processed_indices:
+                    continue
+                
+                # التحقق من التطابق
+                is_match = True
+                for col in columns:
+                    norm_col = normalized_cols[col]
+                    val1 = df.loc[idx1, norm_col]
+                    val2 = df.loc[idx2, norm_col]
+                    
+                    if col in text_columns:
+                        # استخدام التطابق الضبابي للنصوص
+                        if isinstance(val1, str) and isinstance(val2, str):
+                            similarity = SequenceMatcher(None, val1, val2).ratio()
+                            if similarity < threshold:
+                                is_match = False
+                                break
+                        elif val1 != val2:
+                            is_match = False
+                            break
+                    else:
+                        # التطابق التام للأعمدة الأخرى
+                        if val1 != val2:
+                            is_match = False
+                            break
+                
+                if is_match:
+                    current_group.append(idx2)
+                    processed_indices.add(idx2)
+            
+            # إذا كانت المجموعة تحتوي على أكثر من عنصر واحد، فهي تكرار
+            if len(current_group) > 1:
+                for idx in current_group:
+                    fuzzy_groups[idx] = group_id
+                group_id += 1
+        
+        # إنشاء DataFrame بالتكرارات
+        if fuzzy_groups:
+            duplicates = df.loc[list(fuzzy_groups.keys())].copy()
+            duplicates['duplicate_group'] = duplicates.index.map(fuzzy_groups)
+            return duplicates
+        else:
+            return pd.DataFrame()
+    
     def _find_duplicates_with_time_window(self,
                                          df: pd.DataFrame,
                                          comparison_cols: List[str],
