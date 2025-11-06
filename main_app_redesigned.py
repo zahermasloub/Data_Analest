@@ -344,15 +344,22 @@ elif current_page == "🧩 تجهيز الملفات":
 
                     if len(selected_keys) == 0:
                         # دمج كامل تلقائياً (تطابق الصف عند تطابق جميع الأعمدة)
-                        a_unique = A.drop_duplicates()
-                        b_unique = B.drop_duplicates()
-                        merged_all = pd.concat([a_unique, b_unique], ignore_index=True)
-                        deduped = merged_all.drop_duplicates()
+                        # ملاحظة: نتجنب مشاكل اختلاف الأنواع بين الأعمدة عبر التطبيع إلى نص عند احتساب الصفوف الجديدة فقط.
+                        a_unique = A.drop_duplicates(subset=all_cols)
+                        b_unique = B.drop_duplicates(subset=all_cols)
 
-                        # حسابات النتائج
-                        # الصفوف الجديدة من B التي ليست في A (تطابق كامل للأعمدة)
-                        new_merge = b_unique.merge(a_unique, how='left', on=all_cols, indicator=True)
-                        new_rows_count = int((new_merge['_merge'] == 'left_only').sum()) if '_merge' in new_merge.columns else 0
+                        merged_all = pd.concat([a_unique, b_unique], ignore_index=True)
+                        deduped = merged_all.drop_duplicates(subset=all_cols)
+
+                        # حساب الصفوف الجديدة من B مقارنةً بـ A (تطابق كامل للأعمدة)
+                        def _row_signature(df: pd.DataFrame, cols: list[str]) -> pd.Series:
+                            # تحويل القيم إلى نص مع استبدال القيم المفقودة بسلسلة فارغة لتوحيد المقارنة
+                            return df[cols].astype(str).apply(lambda r: "||".join(r.values.tolist()), axis=1)
+
+                        sig_a = set(_row_signature(a_unique, all_cols).tolist())
+                        sig_b = _row_signature(b_unique, all_cols)
+                        new_rows_count = int((~sig_b.isin(sig_a)).sum())
+
                         duplicates_removed_count = len(merged_all) - len(deduped)
 
                         merged_df = deduped
@@ -455,7 +462,7 @@ elif current_page == "🧩 تجهيز الملفات":
                     st.session_state.merge_state['report'] = report
                     st.session_state.merge_state['conflicts'] = conflicts_list
 
-                # رسائل النجاح وفق المتطلبات
+                # رسائل النجاح وفق المتطلبات (داخل try لضمان عدم قطع كتلة try/except)
                 st.success("تم الدمج بنجاح وفق الإعدادات.")
                 if len(selected_keys) == 0:
                     st.info("تم تنفيذ الدمج الكامل تلقائياً لعدم تحديد أعمدة تطابق.")
