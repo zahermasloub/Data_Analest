@@ -329,132 +329,236 @@ elif current_page == "🧩 تجهيز الملفات":
 
         if run_merge:
             try:
-                with st.spinner("جاري تجهيز الدمج…"):
-                    # نسخ لحماية الأصل
+                with st.spinner("جاري معالجة الدمج…"):
+                    # 1) تجهيز المعايير والوظائف المساندة
+                    preferred_essentials = ["رقم الهوية", "رقم السباق", "التاريخ", "المبلغ"]
+                    essentials = selected_keys[:] if len(selected_keys) > 0 else [c for c in preferred_essentials if c in df_a.columns and c in df_b.columns]
+
+                    def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
+                        d = df.copy()
+                        # توحيد النصوص: إزالة المسافات الزائدة
+                        for col in d.select_dtypes(include=['object']).columns:
+                            d[col] = d[col].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+                            d.loc[d[col].isin(["None", "nan", "NaT"]) , col] = pd.NA
+                        # توحيد التواريخ بناءً على الاسم أو النوع
+                        likely_date_cols = [c for c in d.columns if ("تاريخ" in str(c))]
+                        for col in likely_date_cols:
+                            d[col] = pd.to_datetime(d[col], errors='coerce', dayfirst=True)
+                        for col in d.select_dtypes(include=['datetime', 'datetimetz']).columns:
+                            d[col] = pd.to_datetime(d[col], errors='coerce', dayfirst=True)
+                        return d
+
+                    def row_checks(row: pd.Series) -> dict:
+                        issues = {"missing_essentials": False, "future_dates": [], "negative_amounts": []}
+                        # اكتمال الحقول الأساسية
+                        if essentials:
+                            for c in essentials:
+                                if c in row.index:
+                                    v = row[c]
+                                    if pd.isna(v) or (isinstance(v, str) and v.strip() == ""):
+                                        issues["missing_essentials"] = True
+                                        break
+                        # تواريخ مستقبلية
+                        for c in row.index:
+                            if "تاريخ" in str(c):
+                                try:
+                                    dt = pd.to_datetime(row[c], errors='coerce', dayfirst=True)
+                                    if pd.notna(dt) and dt > pd.Timestamp.today() + pd.Timedelta(days=1):
+                                        issues["future_dates"].append(c)
+                                except Exception:
+                                    pass
+                        # مبالغ سالبة محتملة
+                        for c in row.index:
+                            if any(k in str(c) for k in ["مبلغ", "قيمة", "سعر", "Amount", "Value"]):
+                                v = row[c]
+                                try:
+                                    num = float(v)
+                                    if num < 0:
+                                        issues["negative_amounts"].append(c)
+                                except Exception:
+                                    pass
+                        return issues
+
+                    # 2) نسخ وحماية الأصل + توحيد الأعمدة ثم تنظيف عمودي
                     A = df_a.copy()
                     B = df_b.copy()
-
-                    # توحيد الأعمدة لتشمل جميع الحقول
                     all_cols = list(dict.fromkeys(list(A.columns) + list(B.columns)))
                     for col in all_cols:
                         if col not in A.columns:
                             A[col] = pd.NA
                         if col not in B.columns:
                             B[col] = pd.NA
+                    A = normalize_df(A)
+                    B = normalize_df(B)
+
+                    # عدادات وإحصاءات
+                    duplicates_removed_count = 0
+                    conflicts_list = []          # المؤجلة للمراجعة
+                    conflicts_resolved_count = 0  # تمت معالجتها تلقائياً
+                    auto_filled_updates = 0
+                    new_rows_count = 0
 
                     if len(selected_keys) == 0:
                         # دمج كامل تلقائياً (تطابق الصف عند تطابق جميع الأعمدة)
-                        # ملاحظة: نتجنب مشاكل اختلاف الأنواع بين الأعمدة عبر التطبيع إلى نص عند احتساب الصفوف الجديدة فقط.
                         a_unique = A.drop_duplicates(subset=all_cols)
                         b_unique = B.drop_duplicates(subset=all_cols)
-
                         merged_all = pd.concat([a_unique, b_unique], ignore_index=True)
                         deduped = merged_all.drop_duplicates(subset=all_cols)
 
-                        # حساب الصفوف الجديدة من B مقارنةً بـ A (تطابق كامل للأعمدة)
+                        # احتساب الصفوف الجديدة من B مقارنة بـ A بتوقيعات نصية آمنة الأنواع
                         def _row_signature(df: pd.DataFrame, cols: list[str]) -> pd.Series:
-                            # تحويل القيم إلى نص مع استبدال القيم المفقودة بسلسلة فارغة لتوحيد المقارنة
                             return df[cols].astype(str).apply(lambda r: "||".join(r.values.tolist()), axis=1)
 
                         sig_a = set(_row_signature(a_unique, all_cols).tolist())
                         sig_b = _row_signature(b_unique, all_cols)
                         new_rows_count = int((~sig_b.isin(sig_a)).sum())
-
                         duplicates_removed_count = len(merged_all) - len(deduped)
 
                         merged_df = deduped
-                        conflicts_list = []
-                        auto_filled_updates = 0
                         keys_used = []
                     else:
                         # حفظ المفاتيح
                         st.session_state.merge_state['keys'] = selected_keys
 
-                        # تحديد المجموعات حسب المفاتيح
                         key_tuple_a = A[selected_keys].astype(str).apply(lambda r: tuple(r.values.tolist()), axis=1)
                         key_tuple_b = B[selected_keys].astype(str).apply(lambda r: tuple(r.values.tolist()), axis=1)
 
                         set_a = set(key_tuple_a)
                         set_b = set(key_tuple_b)
-
                         only_in_b_keys = set_b - set_a
                         in_both_keys = set_a & set_b
 
-                        # الصفوف الجديدة المضافة (حسب المفاتيح)
+                        # الصفوف الجديدة
                         idx_b_only = [i for i, k in enumerate(key_tuple_b) if k in only_in_b_keys]
                         new_rows = B.iloc[idx_b_only].copy()
 
-                        # معالجة المفاتيح الموجودة في الملفين (تعارض/تكرار)
-                        conflicts_list = []
-                        duplicates_removed_count = 0
-                        auto_filled_updates = 0
-
-                        # خريطة من المفتاح إلى صف في B لتسريع الوصول
+                        # خريطة مفاتيح لصفوف B
                         b_map = {}
                         for i, k in enumerate(key_tuple_b):
                             if k in in_both_keys:
                                 b_map.setdefault(k, []).append(i)
 
-                        # المرور على صفوف A وتطبيق الدمج الجزئي
+                        # معالجة التعارضات والحشو التلقائي
                         for i, k in enumerate(key_tuple_a):
-                            if k in in_both_keys:
-                                b_indices = b_map.get(k, [])
-                                if not b_indices:
+                            if k not in in_both_keys:
+                                continue
+                            j = b_map.get(k, [None])[0]
+                            if j is None:
+                                continue
+                            row_a = A.iloc[i]
+                            row_b = B.iloc[j]
+
+                            diff_cols = []
+                            unresolved_cols = []
+                            identical_all = True
+
+                            for col in all_cols:
+                                if col in selected_keys:
                                     continue
-                                j = b_indices[0]
-                                row_a = A.iloc[i]
-                                row_b = B.iloc[j]
+                                va = row_a[col]
+                                vb = row_b[col]
+                                is_na_a = pd.isna(va) or (isinstance(va, str) and va.strip() == "")
+                                is_na_b = pd.isna(vb) or (isinstance(vb, str) and vb.strip() == "")
 
-                                diff_cols = []
-                                identical_all = True
-                                for col in all_cols:
-                                    if col in selected_keys:
-                                        continue
-                                    va = row_a[col]
-                                    vb = row_b[col]
-
-                                    is_na_a = pd.isna(va) or (isinstance(va, str) and va.strip() == "")
-                                    is_na_b = pd.isna(vb) or (isinstance(vb, str) and vb.strip() == "")
-
-                                    if is_na_a and not is_na_b:
-                                        A.at[A.index[i], col] = vb
-                                        auto_filled_updates += 1
-                                        identical_all = False
-                                    elif (not is_na_a and not is_na_b) and (str(va) != str(vb)):
-                                        identical_all = False
+                                if is_na_a and not is_na_b:
+                                    A.at[A.index[i], col] = vb
+                                    auto_filled_updates += 1
+                                    identical_all = False
+                                elif (not is_na_a and not is_na_b) and (str(va) != str(vb)):
+                                    # محاولة تسوية واضحة حسب نوع الحقل
+                                    identical_all = False
+                                    resolved = False
+                                    # تواريخ
+                                    if "تاريخ" in str(col):
+                                        try:
+                                            dta = pd.to_datetime(va, errors='coerce', dayfirst=True)
+                                            dtb = pd.to_datetime(vb, errors='coerce', dayfirst=True)
+                                            if pd.notna(dta) and pd.notna(dtb):
+                                                # اختر الأحدث بشرط ألا يكون مستقبلياً بشكل غير منطقي
+                                                candidate = max(dta, dtb)
+                                                if candidate <= pd.Timestamp.today() + pd.Timedelta(days=1):
+                                                    A.at[A.index[i], col] = candidate
+                                                    resolved = True
+                                        except Exception:
+                                            pass
+                                    # مبالغ
+                                    if not resolved and any(k in str(col) for k in ["مبلغ", "قيمة", "سعر", "Amount", "Value"]):
+                                        try:
+                                            na = float(va)
+                                            nb = float(vb)
+                                            # فضّل غير السالب، وإن كان كلاهما غير سالب فاختر قيمة الملف الثاني كقاعدة عامة
+                                            if na < 0 <= nb:
+                                                A.at[A.index[i], col] = nb
+                                                resolved = True
+                                            elif nb < 0 <= na:
+                                                # أبقِ قيمة الملف الأول
+                                                resolved = True
+                                            else:
+                                                A.at[A.index[i], col] = nb
+                                                resolved = True
+                                        except Exception:
+                                            pass
+                                    # إن لم تُحسم، اعتبرها تعارضاً مؤجلاً
+                                    if not resolved:
                                         diff_cols.append(col)
+                                        unresolved_cols.append(col)
 
-                                if identical_all:
-                                    duplicates_removed_count += 1
-                                elif len(diff_cols) > 0:
-                                    conflict_entry = {
-                                        'keys': {kname: row_a[kname] for kname in selected_keys},
-                                        'اختلافات الحقول': []
-                                    }
-                                    for dc in diff_cols:
-                                        conflict_entry['اختلافات الحقول'].append({
+                            if identical_all:
+                                duplicates_removed_count += 1
+                            elif len(unresolved_cols) == 0 and len(diff_cols) > 0:
+                                # تمت معالجة التعارضات تلقائياً
+                                conflicts_resolved_count += 1
+                            elif len(diff_cols) > 0:
+                                # مؤجلة للمراجعة
+                                conflicts_list.append({
+                                    'keys': {kname: row_a[kname] for kname in selected_keys},
+                                    'اختلافات الحقول': [
+                                        {
                                             'الحقل': dc,
                                             'قيمة الملف الأول': row_a[dc],
                                             'قيمة الملف الثاني': row_b[dc]
-                                        })
-                                    conflicts_list.append(conflict_entry)
+                                        } for dc in diff_cols
+                                    ]
+                                })
 
                         merged_df = pd.concat([A, new_rows], ignore_index=True)
                         new_rows_count = len(new_rows)
                         keys_used = selected_keys
 
-                    # تقرير الدمج الموحد
+                    # 3) بناء التقرير
+                    totals_conflicts = len(conflicts_list) + conflicts_resolved_count
+                    file_a_rows = len(df_a)
+                    file_b_rows = len(df_b)
+                    total_rows_input = max(1, file_a_rows + file_b_rows)
+
+                    # فحوصات صفّية سريعة على الملف المدمج
+                    quality = {"missing_essentials": 0, "future_dates": 0, "negative_amounts": 0}
+                    if len(essentials) > 0:
+                        for _, r in merged_df.iterrows():
+                            qc = row_checks(r)
+                            quality["missing_essentials"] += 1 if qc["missing_essentials"] else 0
+                            quality["future_dates"] += len(qc["future_dates"])
+                            quality["negative_amounts"] += len(qc["negative_amounts"])
+
                     report = {
                         'timestamp': datetime.now().isoformat(),
                         'keys_used': keys_used,
                         'totals': {
-                            'file_a_rows': len(df_a),
-                            'file_b_rows': len(df_b),
+                            'file_a_rows': file_a_rows,
+                            'file_b_rows': file_b_rows,
                             'new_rows_added': new_rows_count,
                             'duplicates_removed': duplicates_removed_count,
-                            'conflicts': len(conflicts_list),
-                            'auto_filled_updates': auto_filled_updates
+                            'conflicts_total': totals_conflicts,
+                            'conflicts_resolved': conflicts_resolved_count,
+                            'conflicts_deferred': len(conflicts_list),
+                            'auto_filled_updates': auto_filled_updates,
+                            'rates': {
+                                'resolved_rate_pct': (conflicts_resolved_count / totals_conflicts * 100) if totals_conflicts else 0.0,
+                                'deferred_rate_pct': (len(conflicts_list) / totals_conflicts * 100) if totals_conflicts else 0.0,
+                                'duplicates_rate_pct': (duplicates_removed_count / total_rows_input * 100)
+                            }
                         },
+                        'quality': quality,
                         'conflicts': conflicts_list
                     }
 
@@ -462,10 +566,31 @@ elif current_page == "🧩 تجهيز الملفات":
                     st.session_state.merge_state['report'] = report
                     st.session_state.merge_state['conflicts'] = conflicts_list
 
-                # رسائل النجاح وفق المتطلبات (داخل try لضمان عدم قطع كتلة try/except)
-                st.success("تم الدمج بنجاح وفق الإعدادات.")
+                # 4) رسائل الحالة للمستخدم
+                totals = st.session_state.merge_state['report']['totals']
                 if len(selected_keys) == 0:
-                    st.info("تم تنفيذ الدمج الكامل تلقائياً لعدم تحديد أعمدة تطابق.")
+                    st.info("في حال عدم تحديد أعمدة للتطابق، سيتم الدمج الكامل تلقائياً.")
+                if totals['conflicts_total'] == 0:
+                    st.success("تم الدمج بنجاح دون تكرارات.")
+                elif totals['conflicts_resolved'] > 0 and totals['conflicts_deferred'] == 0:
+                    st.success("تم الدمج مع معالجة بعض التعارضات.")
+                else:
+                    st.success("تم الدمج مع معالجة بعض التعارضات.")
+                    ui.info_box("تنبيه", "توجد تعارضات تحتاج مراجعة.", "warning")
+                    st.caption("الرجاء مراجعة حالات التعارض المؤجلة لاتخاذ قرار نهائي.")
+
+                # تنبيهات الجودة
+                q = st.session_state.merge_state['report'].get('quality', {})
+                if q:
+                    msgs = []
+                    if q.get('missing_essentials', 0) > 0:
+                        msgs.append(f"عدد صفوف تفتقد حقولاً أساسية: {q['missing_essentials']:,}")
+                    if q.get('future_dates', 0) > 0:
+                        msgs.append(f"تواريخ مستقبلية محتملة: {q['future_dates']:,}")
+                    if q.get('negative_amounts', 0) > 0:
+                        msgs.append(f"مبالغ سالبة محتملة: {q['negative_amounts']:,}")
+                    if msgs:
+                        ui.info_box("تنبيه جودة البيانات", " | ".join(msgs), "warning")
 
             except Exception:
                 ui.info_box("خطأ", "تعذّر إتمام العملية — تحقق من الملفات أو الأعمدة المفتاحية.", "error")
@@ -487,10 +612,24 @@ elif current_page == "🧩 تجهيز الملفات":
             with r4:
                 ui.metric_card("الصفوف المكررة المحذوفة:", f"{totals['duplicates_removed']:,}", "", "♻️")
             with r5:
-                ui.metric_card("التعارضات التي تتطلب مراجعة:", f"{totals['conflicts']:,}", "", "⚠️")
+                ui.metric_card("التعارضات التي تتطلب مراجعة:", f"{totals.get('conflicts_deferred', 0):,}", "", "⚠️")
 
-            if totals['new_rows_added'] == 0 and totals['duplicates_removed'] == 0 and totals['conflicts'] == 0:
+            # نسب مئوية
+            rates = totals.get('rates', {})
+            rr1, rr2, rr3 = st.columns(3)
+            with rr1:
+                ui.metric_card("نسبة التعارضات المعالجة:", f"{rates.get('resolved_rate_pct', 0):.1f}%", "", "✅")
+            with rr2:
+                ui.metric_card("نسبة المؤجلة للمراجعة:", f"{rates.get('deferred_rate_pct', 0):.1f}%", "", "⏳")
+            with rr3:
+                ui.metric_card("نسبة التكرارات المستبعدة:", f"{rates.get('duplicates_rate_pct', 0):.1f}%", "", "🧹")
+
+            if totals['new_rows_added'] == 0 and totals['duplicates_removed'] == 0 and totals.get('conflicts_deferred', 0) == 0:
                 ui.info_box("تنبيه", "لا توجد صفوف قابلة للدمج.", "warning")
+
+            # عرض مباشر للملف المدمج
+            st.markdown("### 📄 عرض الملف المدمج")
+            ui.data_table_enhanced(st.session_state.merge_state['merged_df'], show_search=True)
 
             # أزرار الإجراءات
             c1, c2 = st.columns(2)
@@ -528,7 +667,7 @@ elif current_page == "🧩 تجهيز الملفات":
                                     'قيمة الملف الثاني': diff['قيمة الملف الثاني']
                                 })
                         if rows:
-                            ui.data_table_enhanced(pd.DataFrame(rows), show_search=False)
+                            ui.data_table_enhanced(pd.DataFrame(rows), show_search=True)
 
                         # خيارات المراجعة (عالية المستوى)
                         st.markdown("---")
