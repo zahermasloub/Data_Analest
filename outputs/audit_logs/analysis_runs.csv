@@ -1,0 +1,4 @@
+﻿RunID,Timestamp,AwardsFiles,BankFile,TotalAwards,TotalBankRecords,ExactMatches,FuzzyMatches,RLMatches,UnmatchedAwards,SuspectedDuplicates,ConfirmedDuplicates,TimeWindowDays,FuzzyThreshold,UseRecordLinkage,ExecutionTimeSeconds,UserName,Status
+4b013f0f-d2e0-47b1-b0d5-ec8243a94782,2025-11-06 16:30:40.505771,sample_awards_advanced.xlsx,sample_bank_advanced.xlsx,100,100,62,25,0,13,0,0,7,90,True,0.2658865451812744,System,Success
+8693e7ab-3805-42f1-9e44-e8b7ce282fe5,2025-11-06 16:33:05.600388,sample_awards_advanced.xlsx,sample_bank_advanced.xlsx,100,100,77,18,0,5,0,0,7,90,True,0.1732206344604492,System,Success
+825a963f-fe47-4d92-aa5b-12c625bbe42c,2025-11-06 16:45:24.857606,data/awards_2023.xlsx;data/awards_2024.xlsx,data/bank_2024.xlsx,5,3,0,0,0,5,0,0,7,90,True,0.0008921623229980469,System,Success

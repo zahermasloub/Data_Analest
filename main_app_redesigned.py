@@ -28,6 +28,7 @@ from core.duplicate_analyzer import DuplicateAnalyzer
 from core.anomaly_detector import AnomalyDetector
 from core.hr_analyzer import HRAnalyzer
 from core.smart_test_generator import SmartTestGenerator
+from core.camel_awards_analyzer import CamelAwardsAnalyzer
 from utils.theme_manager import theme_manager
 from utils.ui_components import UIComponents
 import config
@@ -130,6 +131,7 @@ with st.sidebar:
         "🧩 تجهيز الملفات",
         "📤 تحليل الملفات",
         "👥 الموارد البشرية",
+        "🏆 تحليل جوائز سباقات الهجن",
         "🔧 فحوصات مخصصة",
         "✅ نتائج الفحوصات",
         "📊 لوحة التحكم",
@@ -1509,6 +1511,302 @@ elif current_page == "👥 الموارد البشرية":
             icon="👥",
             title="لم يتم رفع ملف بيانات الموظفين",
             description="ارفع ملف Excel أو CSV لبدء تحليل الموارد البشرية"
+        )
+
+# ==================== تحليل جوائز سباقات الهجن ====================
+elif current_page == "🏆 تحليل جوائز سباقات الهجن":
+    
+    ui.gradient_header("تحليل جوائز سباقات الهجن", "مطابقة الجوائز مع كشوفات البنك واكتشاف الصرف المكرر", "🏆")
+    
+    # تهيئة Session State للصفحة
+    if 'camel_analyzer' not in st.session_state:
+        st.session_state.camel_analyzer = CamelAwardsAnalyzer()
+    if 'camel_results' not in st.session_state:
+        st.session_state.camel_results = None
+    if 'camel_stats' not in st.session_state:
+        st.session_state.camel_stats = {}
+    
+    analyzer = st.session_state.camel_analyzer
+    
+    # ========== القسم 1: رفع الملفات ==========
+    st.markdown("### 📁 رفع الملفات")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        ui.info_box(
+            "ملفات الجوائز",
+            "ارفع ملف أو أكثر من ملفات Excel لبيانات الجوائز (مواسم مختلفة)",
+            "info"
+        )
+        awards_files = st.file_uploader(
+            "اختر ملفات الجوائز",
+            type=['xlsx', 'xls', 'csv'],
+            accept_multiple_files=True,
+            key="camel_awards_files"
+        )
+    
+    with col2:
+        ui.info_box(
+            "كشف البنك",
+            "ارفع ملف Excel واحد لكشف البنك",
+            "info"
+        )
+        bank_file = st.file_uploader(
+            "اختر كشف البنك",
+            type=['xlsx', 'xls', 'csv'],
+            key="camel_bank_file"
+        )
+    
+    st.divider()
+    
+    # ========== القسم 2: إعدادات التحليل ==========
+    st.markdown("### ⚙️ إعدادات التحليل")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        time_window = st.selectbox(
+            "نافذة تطابق التاريخ:",
+            options=[3, 7, 14],
+            format_func=lambda x: f"± {x} أيام",
+            index=1,
+            key="camel_time_window",
+            help="المدى الزمني المسموح به بين تاريخ الجائزة وتاريخ التحويل البنكي"
+        )
+    
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        analyze_btn = st.button(
+            "🚀 ابدأ التحليل",
+            use_container_width=True,
+            key="start_camel_analysis",
+            disabled=(not awards_files or not bank_file)
+        )
+    
+    # ========== القسم 3: تنفيذ التحليل ==========
+    if analyze_btn:
+        try:
+            with st.spinner("⏳ جاري تحميل ومعالجة الملفات..."):
+                # تحميل ملفات الجوائز
+                analyzer.load_awards_files(awards_files)
+                st.success(f"✅ تم تحميل {len(analyzer.awards_data):,} سجل جائزة")
+                
+                # تحميل كشف البنك
+                analyzer.load_bank_statement(bank_file)
+                st.success(f"✅ تم تحميل {len(analyzer.bank_data):,} سجل بنكي")
+            
+            with st.spinner("🔍 جاري المطابقة مع كشف البنك..."):
+                # مطابقة مع البنك
+                analyzer.match_with_bank(time_window_days=time_window)
+                
+                # اكتشاف التكرارات الداخلية
+                analyzer.detect_internal_duplicates()
+                
+                # حساب الإحصائيات
+                stats = analyzer.calculate_statistics()
+                
+                st.session_state.camel_results = analyzer.merged_results
+                st.session_state.camel_stats = stats
+            
+            st.success("✅ تم إنجاز التحليل بنجاح!")
+            st.balloons()
+            
+        except Exception as e:
+            st.error(f"❌ خطأ في التحليل: {str(e)}")
+            st.info("💡 تأكد من صحة الملفات وتطابق الأعمدة المطلوبة")
+    
+    # ========== القسم 4: عرض النتائج ==========
+    if st.session_state.camel_results is not None:
+        st.divider()
+        
+        # شريط الإحصائيات
+        st.markdown("### 📊 ملخص النتائج")
+        
+        stats = st.session_state.camel_stats
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            ui.metric_card(
+                "إجمالي السجلات",
+                f"{stats.get('total_records', 0):,}",
+                "",
+                "📊"
+            )
+        with col2:
+            ui.metric_card(
+                "الحالات السليمة ✅",
+                f"{stats.get('matched_ok', 0):,}",
+                f"{stats.get('match_rate', 0):.1f}%",
+                "✅"
+            )
+        with col3:
+            ui.metric_card(
+                "المشتبه ⚠️",
+                f"{stats.get('suspected', 0):,}",
+                "",
+                "⚠️"
+            )
+        with col4:
+            ui.metric_card(
+                "المكرر المؤكد ❌",
+                f"{stats.get('confirmed_duplicate', 0):,}",
+                "",
+                "❌"
+            )
+        
+        st.divider()
+        
+        # ========== القسم 5: الفلاتر ==========
+        st.markdown("### 🔍 فلترة النتائج")
+        
+        results_df = st.session_state.camel_results
+        
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+        
+        with filter_col1:
+            seasons = ['الكل'] + sorted(results_df['Season'].dropna().unique().tolist())
+            selected_season = st.selectbox(
+                "الموسم:",
+                options=seasons,
+                key="filter_season"
+            )
+        
+        with filter_col2:
+            races = ['الكل'] + sorted(results_df['Race'].dropna().unique().tolist())
+            selected_race = st.selectbox(
+                "السباق:",
+                options=races,
+                key="filter_race"
+            )
+        
+        with filter_col3:
+            statuses = ['الكل', '✅', '⚠️', '❌']
+            selected_status = st.selectbox(
+                "الحالة:",
+                options=statuses,
+                key="filter_status"
+            )
+        
+        with filter_col4:
+            participant_search = st.text_input(
+                "بحث عن مشارك:",
+                key="filter_participant"
+            )
+        
+        # تطبيق الفلاتر
+        filtered_df = analyzer.filter_results(
+            season=None if selected_season == 'الكل' else selected_season,
+            race=None if selected_race == 'الكل' else selected_race,
+            status=None if selected_status == 'الكل' else selected_status,
+            participant=participant_search if participant_search else None
+        )
+        
+        st.divider()
+        
+        # ========== القسم 6: جدول النتائج ==========
+        st.markdown(f"### 📋 النتائج ({len(filtered_df):,} سجل)")
+        
+        if len(filtered_df) > 0:
+            # ترتيب الأعمدة
+            display_columns = [
+                'OwnerName', 'Race', 'Season', 'AwardAmount', 
+                'EntryDate', 'BankDate', 'MatchScore', 
+                'StatusFlag', 'ReasonText'
+            ]
+            
+            display_columns = [col for col in display_columns if col in filtered_df.columns]
+            display_df = filtered_df[display_columns].copy()
+            
+            # تنسيق العرض
+            if 'EntryDate' in display_df.columns:
+                display_df['EntryDate'] = pd.to_datetime(display_df['EntryDate']).dt.strftime('%Y-%m-%d')
+            if 'BankDate' in display_df.columns:
+                display_df['BankDate'] = pd.to_datetime(display_df['BankDate']).dt.strftime('%Y-%m-%d')
+            
+            ui.data_table_enhanced(display_df, show_search=True, max_height=500)
+            
+            st.divider()
+            
+            # ========== القسم 7: الرسوم البيانية ==========
+            st.markdown("### 📈 التحليل البياني")
+            
+            chart_col1, chart_col2 = st.columns(2)
+            
+            with chart_col1:
+                # توزيع الحالات
+                status_counts = filtered_df['StatusFlag'].value_counts()
+                fig_status = px.pie(
+                    values=status_counts.values,
+                    names=status_counts.index,
+                    title="توزيع الحالات",
+                    color=status_counts.index,
+                    color_discrete_map={'✅': '#00D26A', '⚠️': '#FFC107', '❌': '#FF4C51'}
+                )
+                st.plotly_chart(fig_status, use_container_width=True)
+            
+            with chart_col2:
+                # توزيع حسب الموسم
+                if 'Season' in filtered_df.columns:
+                    season_counts = filtered_df.groupby('Season')['StatusFlag'].value_counts().unstack(fill_value=0)
+                    fig_season = px.bar(
+                        season_counts,
+                        title="توزيع الحالات حسب الموسم",
+                        barmode='stack',
+                        color_discrete_map={'✅': '#00D26A', '⚠️': '#FFC107', '❌': '#FF4C51'}
+                    )
+                    st.plotly_chart(fig_season, use_container_width=True)
+            
+            st.divider()
+            
+            # ========== القسم 8: تصدير التقرير ==========
+            st.markdown("### 📤 تصدير التقرير")
+            
+            export_col1, export_col2 = st.columns(2)
+            
+            with export_col1:
+                if st.button("📥 تنزيل التقرير الكامل (Excel)", use_container_width=True, key="download_full"):
+                    try:
+                        output_path = analyzer.export_report()
+                        with open(output_path, 'rb') as f:
+                            st.download_button(
+                                label="💾 حفظ التقرير",
+                                data=f.read(),
+                                file_name=Path(output_path).name,
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                use_container_width=True
+                            )
+                        st.success("✅ تم إنشاء التقرير بنجاح!")
+                    except Exception as e:
+                        st.error(f"❌ خطأ في التصدير: {str(e)}")
+            
+            with export_col2:
+                # تصدير البيانات المفلترة فقط
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                    display_df.to_excel(writer, index=False, sheet_name='النتائج المفلترة')
+                
+                st.download_button(
+                    label="📥 تنزيل النتائج المفلترة (Excel)",
+                    data=buffer.getvalue(),
+                    file_name=f"filtered_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+        else:
+            ui.empty_state(
+                icon="🔍",
+                title="لا توجد نتائج",
+                description="لا توجد بيانات مطابقة للفلاتر المحددة"
+            )
+    
+    else:
+        # رسالة عدم وجود نتائج
+        st.divider()
+        ui.empty_state(
+            icon="🏆",
+            title="ابدأ التحليل",
+            description="ارفع ملفات الجوائز وكشف البنك ثم اضغط على 'ابدأ التحليل'"
         )
 
 # ==================== فحوصات مخصصة ====================
