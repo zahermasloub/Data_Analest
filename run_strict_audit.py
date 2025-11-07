@@ -160,6 +160,27 @@ def main():
         # Store results
         analyzer.matched_df = verification_results['matched']
         analyzer.unmatched_df = verification_results['unmatched']
+        
+        # Update duplicates with confirmed status
+        # التكرار المؤكد = تكرار + مطابقة بنكية 100%
+        if len(analyzer.matched_df) > 0:
+            matched_indices = analyzer.matched_df.index
+            duplicates.loc[matched_indices, '_ConfirmedDuplicate'] = True
+            duplicates.loc[matched_indices, 'ReasonText'] = '🔴 تكرار مؤكد + بنك مطابق'
+        
+        # Update unmatched duplicates reason
+        if len(analyzer.unmatched_df) > 0:
+            unmatched_indices = analyzer.unmatched_df.index
+            # Keep existing reason or update based on bank status
+            for idx in unmatched_indices:
+                if idx in duplicates.index:
+                    bank_reason = analyzer.unmatched_df.loc[idx, 'MatchReason'] if 'MatchReason' in analyzer.unmatched_df.columns else ''
+                    if bank_reason:
+                        duplicates.loc[idx, 'ReasonText'] = f'⚠️ تكرار - {bank_reason}'
+        
+        # Update analyzer.duplicates with new info
+        analyzer.duplicates = duplicates
+        
     else:
         print("\n⚠️ تخطي التحقق من البنك (لا توجد بيانات)")
         analyzer.matched_df = pd.DataFrame()

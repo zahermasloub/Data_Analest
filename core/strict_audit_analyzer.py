@@ -217,6 +217,12 @@ class StrictAuditAnalyzer:
         # Add duplicate severity classification
         duplicates['_DuplicateSeverity'] = duplicates.apply(self._classify_duplicate_severity, axis=1)
         
+        # Add simple, clear reason text for duplicates
+        duplicates['ReasonText'] = '✅ تكرار مؤكد'
+        
+        # Add confirmed duplicate flag (will be updated after bank verification)
+        duplicates['_ConfirmedDuplicate'] = False
+        
         # Add name verification fields for documentation
         # جمع جميع الأسماء المختلفة لكل مجموعة تكرار
         if len(duplicates) > 0:
@@ -379,7 +385,7 @@ class StrictAuditAnalyzer:
             if match_found and best_match is not None:
                 # MATCHED - 100% criteria met
                 award_dict['MatchStatus'] = 'MATCHED_100'
-                award_dict['MatchReason'] = f'مطابقة دقيقة 100%: Reference + Amount'
+                award_dict['MatchReason'] = '✅ مطابقة بنكية كاملة'
                 award_dict['BankTransferAmount'] = best_match['TransferAmount']
                 award_dict['BankTransactionDate'] = best_match.get('TransactionDate')
                 award_dict['BankValueDate'] = best_match.get('ValueDate')
@@ -395,15 +401,15 @@ class StrictAuditAnalyzer:
                     'AwardAmount': award_amount,
                     'BankAmount': best_match['TransferAmount'],
                     'Reference': award_refs[0] if award_refs else 'N/A',
-                    'Status': '✅ مطابق 100%'
+                    'Status': '✅ مطابق'
                 })
             else:
                 # UNMATCHED
                 award_dict['MatchStatus'] = 'UNMATCHED'
                 
-                # Determine specific reason
+                # Determine specific reason - SHORT and CLEAR
                 if not award_refs:
-                    award_dict['MatchReason'] = 'لا يوجد رقم مرجعي'
+                    award_dict['MatchReason'] = '❌ لا يوجد Reference'
                 else:
                     # Check if reference exists but amount differs
                     ref_check = False
@@ -420,9 +426,9 @@ class StrictAuditAnalyzer:
                                 break
                     
                     if ref_check:
-                        award_dict['MatchReason'] = 'Reference موجود لكن المبلغ غير مطابق'
+                        award_dict['MatchReason'] = '⚠️ Ref مطابق - مبلغ مختلف'
                     else:
-                        award_dict['MatchReason'] = 'Reference غير موجود في كشف البنك'
+                        award_dict['MatchReason'] = '❌ Ref غير موجود بالبنك'
                 
                 unmatched_records.append(award_dict)
                 
@@ -501,7 +507,7 @@ class StrictAuditAnalyzer:
                     'AwardAmount', 'EntryDate', 'PaymentReference', 'PaymentReference_D1',
                     '_DuplicateGroup', '_DuplicateCount', '_DuplicateSeverity',
                     'OwnerName_AllVariations', 'OwnerName_VariationsCount', 'OwnerName_MatchStatus',
-                    'SourceFile'
+                    '_ConfirmedDuplicate', 'ReasonText', 'SourceFile'
                 ]
                 available_cols = [col for col in export_cols if col in self.duplicates.columns]
                 
@@ -510,6 +516,26 @@ class StrictAuditAnalyzer:
                     sheet_name='All_Duplicates',
                     index=False
                 )
+                
+                # Apply conditional formatting for confirmed duplicates (PINK #FFC7CE)
+                from openpyxl.styles import PatternFill
+                workbook = writer.book
+                worksheet = writer.sheets['All_Duplicates']
+                
+                # Find _ConfirmedDuplicate column index
+                if '_ConfirmedDuplicate' in available_cols:
+                    confirmed_col_idx = available_cols.index('_ConfirmedDuplicate') + 1  # 1-indexed
+                    pink_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+                    
+                    # Apply pink color to confirmed duplicate rows
+                    for row_idx, row_data in enumerate(self.duplicates[available_cols].itertuples(index=False), start=2):
+                        if '_ConfirmedDuplicate' in available_cols:
+                            col_position = available_cols.index('_ConfirmedDuplicate')
+                            if row_data[col_position]:  # If confirmed duplicate is True
+                                # Color entire row
+                                for col_idx in range(1, len(available_cols) + 1):
+                                    cell = worksheet.cell(row=row_idx, column=col_idx)
+                                    cell.fill = pink_fill
                 
                 # Sheet 2: Summary by duplicate group
                 summary = self.duplicates.groupby('_DuplicateGroup').agg({
