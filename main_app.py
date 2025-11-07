@@ -19,6 +19,11 @@ from core.duplicate_analyzer import DuplicateAnalyzer
 from core.anomaly_detector import AnomalyDetector
 from core.hr_analyzer import HRAnalyzer
 from core.smart_test_generator import SmartTestGenerator
+from core.camel_awards_page_helper import (
+    run_comprehensive_audit,
+    generate_reports
+)
+from core.multi_file_loader import load_multiple_files
 import config
 
 # إعدادات الصفحة
@@ -420,7 +425,7 @@ with st.sidebar:
     
     main_page = st.radio(
         "اختر القسم:",
-        ["🏠 الصفحة الرئيسية", "📤 تحليل الملفات", "👥 تحليل الموارد البشرية", "🔧 فحوصات مخصصة", "✅ نتائج الفحوصات", "📚 دليل الاستخدام"],
+            ["🏠 الصفحة الرئيسية", "📤 تحليل الملفات", "🏆 تحليل جوائز سباقات الهجن", "👥 تحليل الموارد البشرية", "🔧 فحوصات مخصصة", "✅ نتائج الفحوصات", "📚 دليل الاستخدام"],
         label_visibility="collapsed"
     )
     
@@ -1492,6 +1497,570 @@ elif main_page == "🔧 فحوصات مخصصة":
 # ==================== الصفحة الرئيسية ====================
 elif main_page == "🏠 الصفحة الرئيسية":
     pass  # الصفحة الرئيسية موجودة بالأعلى
+
+# ==================== تحليل جوائز سباقات الهجن ====================
+elif main_page == "🏆 تحليل جوائز سباقات الهجن":
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1>🏆 نظام تدقيق جوائز سباقات الهجن المتقدم</h1>
+        <h2>Enhanced Camel Race Awards Audit System</h2>
+        <p>نظام احترافي متكامل للتدقيق الشامل | كشف التكرارات | مطابقة البنك | التحقق من الحقيقة الأرضية</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # تهيئة session state
+    if 'camel_awards_data' not in st.session_state:
+        st.session_state.camel_awards_data = None
+    if 'camel_bank_data' not in st.session_state:
+        st.session_state.camel_bank_data = None
+    if 'camel_ground_truth_data' not in st.session_state:
+        st.session_state.camel_ground_truth_data = None
+    if 'camel_audit_results' not in st.session_state:
+        st.session_state.camel_audit_results = None
+    
+    # القسم العلوي - نظرة عامة
+    st.markdown("""
+    <div class="info-box">
+        <h3>📋 نظرة عامة على النظام</h3>
+        <p style="font-size: 16px; line-height: 1.8;">
+            نظام تدقيق متقدم يستخدم <strong>المفتاح المركب الذكي (Composite Key Detection)</strong> 
+            لتحديد الهوية الفريدة للمشاركين عبر تطبيع البيانات ومطابقة البنك على 3 مستويات 
+            (Exact → Fuzzy → Advanced) مع التحقق من الحقيقة الأرضية لضمان دقة عالية.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # رفع الملفات
+    st.markdown("### 📤 الخطوة 1: رفع البيانات")
+    
+    # استخدام DuckDB لدمج الملفات المتعددة
+    use_duckdb_files = st.checkbox(
+        "🦆 استخدام DuckDB لدمج عدة ملفات (موصى به)",
+        value=True,
+        help="إذا كانت نفس الأعمدة عبر الملفات سيتم استخدام DuckDB لدمج سريع، وإلا سيتم استخدام Pandas"
+    )
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="card" style="padding: 20px;">
+            <h4>🏆 بيانات الجوائز</h4>
+            <p style="font-size: 14px;">ملف Excel يحتوي على بيانات الجوائز الممنوحة</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        awards_files = st.file_uploader(
+            "ارفع ملفات الجوائز (CSV أو Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            key='awards_uploader',
+            accept_multiple_files=True,
+            help="يمكن رفع عدة ملفات دفعة واحدة وسيتم دمجها تلقائياً"
+        )
+        
+        if awards_files:
+            try:
+                awards_df, awards_stats, awards_removed = load_multiple_files(
+                    awards_files,
+                    use_duckdb=use_duckdb_files,
+                    drop_exact_duplicates=True
+                )
+                st.session_state.camel_awards_data = awards_df
+                st.session_state.camel_awards_stats = awards_stats
+                st.success(f"✅ تم تحميل ودمج {len(awards_files)} ملف - الإجمالي: {len(awards_df):,} سجل")
+                st.caption(f"الأعمدة: {len(awards_df.columns)}" + (f" | حذف تكرارات مطابقة تماماً: {awards_removed:,}" if awards_removed else ""))
+                
+                # عرض التحذيرات إن وجدت
+                all_warnings = []
+                for stat in awards_stats:
+                    if 'warnings' in stat and stat['warnings']:
+                        all_warnings.extend(stat['warnings'])
+                
+                if all_warnings:
+                    with st.expander("⚠️ تحذيرات مهمة عن بنية الملفات", expanded=True):
+                        for warning in all_warnings:
+                            st.warning(warning)
+                        st.info("💡 **نصيحة:** تأكد من أن ملفات Excel لا تحتوي على أعمدة مكررة بنفس الاسم، وإلا قد تفقد بعض البيانات.")
+                
+                # تفاصيل الملفات
+                with st.expander("📄 تفاصيل ملفات الجوائز المرفوعة", expanded=False):
+                    details = [s for s in awards_stats if s.get('label') != '__summary__']
+                    if len(details) > 0:
+                        details_df = pd.DataFrame([{k: v for k, v in d.items() if k != 'warnings'} for d in details])
+                        st.dataframe(details_df, use_container_width=True, height=200)
+            except Exception as e:
+                st.error(f"❌ خطأ: {str(e)}")
+    
+    with col2:
+        st.markdown("""
+        <div class="card" style="padding: 20px;">
+            <h4>🏦 كشف البنك</h4>
+            <p style="font-size: 14px;">ملف Excel يحتوي على المعاملات البنكية</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        bank_files = st.file_uploader(
+            "ارفع ملفات كشف البنك (CSV أو Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            key='bank_uploader',
+            accept_multiple_files=True,
+            help="يمكن رفع ملف واحد أو عدة ملفات وسيتم دمجها تلقائياً"
+        )
+        
+        if bank_files:
+            try:
+                bank_df, bank_stats, bank_removed = load_multiple_files(
+                    bank_files,
+                    use_duckdb=use_duckdb_files,
+                    drop_exact_duplicates=True
+                )
+                st.session_state.camel_bank_data = bank_df
+                st.session_state.camel_bank_stats = bank_stats
+                st.success(f"✅ تم تحميل ودمج {len(bank_files)} ملف - الإجمالي: {len(bank_df):,} معاملة")
+                st.caption(f"الأعمدة: {len(bank_df.columns)}" + (f" | حذف تكرارات مطابقة تماماً: {bank_removed:,}" if bank_removed else ""))
+                
+                # عرض التحذيرات إن وجدت
+                all_warnings = []
+                for stat in bank_stats:
+                    if 'warnings' in stat and stat['warnings']:
+                        all_warnings.extend(stat['warnings'])
+                
+                if all_warnings:
+                    with st.expander("⚠️ تحذيرات مهمة عن بنية الملفات", expanded=True):
+                        for warning in all_warnings:
+                            st.warning(warning)
+                        st.info("💡 **نصيحة:** تأكد من أن ملفات Excel لا تحتوي على أعمدة مكررة بنفس الاسم، وإلا قد تفقد بعض البيانات.")
+                
+                with st.expander("📄 تفاصيل ملفات البنك المرفوعة", expanded=False):
+                    details = [s for s in bank_stats if s.get('label') != '__summary__']
+                    if len(details) > 0:
+                        details_df = pd.DataFrame([{k: v for k, v in d.items() if k != 'warnings'} for d in details])
+                        st.dataframe(details_df, use_container_width=True, height=200)
+            except Exception as e:
+                st.error(f"❌ خطأ: {str(e)}")
+    
+    with col3:
+        st.markdown("""
+        <div class="card" style="padding: 20px;">
+            <h4>✅ الحقيقة الأرضية</h4>
+            <p style="font-size: 14px;">ملف Excel للحالات المعروفة (اختياري)</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        ground_truth_files = st.file_uploader(
+            "ارفع ملفات الحقيقة الأرضية (اختياري) (CSV أو Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            key='ground_truth_uploader',
+            accept_multiple_files=True,
+            help="يمكن رفع عدة ملفات مرجعية وسيتم دمجها"
+        )
+        
+        if ground_truth_files:
+            try:
+                gt_df, gt_stats, gt_removed = load_multiple_files(
+                    ground_truth_files,
+                    use_duckdb=use_duckdb_files,
+                    drop_exact_duplicates=True
+                )
+                st.session_state.camel_ground_truth_data = gt_df
+                st.session_state.camel_gt_stats = gt_stats
+                st.success(f"✅ تم تحميل ودمج {len(ground_truth_files)} ملف - الإجمالي: {len(gt_df):,} حالة")
+                st.caption(f"الأعمدة: {len(gt_df.columns)}" + (f" | حذف تكرارات مطابقة تماماً: {gt_removed:,}" if gt_removed else ""))
+                
+                # عرض التحذيرات إن وجدت
+                all_warnings = []
+                for stat in gt_stats:
+                    if 'warnings' in stat and stat['warnings']:
+                        all_warnings.extend(stat['warnings'])
+                
+                if all_warnings:
+                    with st.expander("⚠️ تحذيرات مهمة عن بنية الملفات", expanded=True):
+                        for warning in all_warnings:
+                            st.warning(warning)
+                        st.info("💡 **نصيحة:** تأكد من أن ملفات Excel لا تحتوي على أعمدة مكررة بنفس الاسم، وإلا قد تفقد بعض البيانات.")
+                
+                with st.expander("📄 تفاصيل ملفات الحقيقة الأرضية المرفوعة", expanded=False):
+                    details = [s for s in gt_stats if s.get('label') != '__summary__']
+                    if len(details) > 0:
+                        details_df = pd.DataFrame([{k: v for k, v in d.items() if k != 'warnings'} for d in details])
+                        st.dataframe(details_df, use_container_width=True, height=200)
+            except Exception as e:
+                st.error(f"❌ خطأ: {str(e)}")
+    
+    st.markdown("---")
+    
+    # عرض معاينة البيانات
+    if st.session_state.camel_awards_data is not None:
+        with st.expander("👁️ معاينة بيانات الجوائز", expanded=False):
+            st.dataframe(
+                st.session_state.camel_awards_data.head(10),
+                use_container_width=True,
+                height=300
+            )
+            st.caption(f"عرض أول 10 صفوف من أصل {len(st.session_state.camel_awards_data):,}")
+    
+    if st.session_state.camel_bank_data is not None:
+        with st.expander("👁️ معاينة كشف البنك", expanded=False):
+            st.dataframe(
+                st.session_state.camel_bank_data.head(10),
+                use_container_width=True,
+                height=300
+            )
+            st.caption(f"عرض أول 10 صفوف من أصل {len(st.session_state.camel_bank_data):,}")
+    
+    st.markdown("---")
+    
+    # إعدادات التدقيق
+    st.markdown("### ⚙️ الخطوة 2: إعدادات التدقيق")
+    
+    col_a, col_b, col_c = st.columns(3)
+    
+    with col_a:
+        use_composite_key = st.checkbox(
+            "🔑 استخدام المفتاح المركب الذكي",
+            value=True,
+            help="يجمع بين QID + الاسم + الرقم لتحديد الهوية الفريدة"
+        )
+    
+    with col_b:
+        enable_bank_matching = st.checkbox(
+            "🏦 تفعيل مطابقة البنك",
+            value=True,
+            help="مطابقة 3 طبقات: Exact → Fuzzy → Advanced"
+        )
+    
+    with col_c:
+        enable_ground_truth = st.checkbox(
+            "✅ تفعيل التحقق من الحقيقة الأرضية",
+            value=st.session_state.camel_ground_truth_data is not None,
+            help="التحقق من الحالات المعروفة"
+        )
+    
+    st.markdown("---")
+    
+    # تشغيل التدقيق
+    st.markdown("### 🚀 الخطوة 3: تنفيذ التدقيق الشامل")
+    
+    can_run = (
+        st.session_state.camel_awards_data is not None and 
+        st.session_state.camel_bank_data is not None
+    )
+    
+    if not can_run:
+        st.warning("⚠️ يرجى رفع بيانات الجوائز وكشف البنك على الأقل للمتابعة")
+    
+    col_run1, col_run2, col_run3 = st.columns([2, 1, 2])
+    
+    with col_run2:
+        run_audit = st.button(
+            "🔍 تشغيل التدقيق الشامل",
+            type="primary",
+            disabled=not can_run,
+            use_container_width=True
+        )
+    
+    # تنفيذ التدقيق
+    if run_audit:
+        with st.spinner("🔄 جاري تنفيذ التدقيق الشامل... قد يستغرق هذا بعض الوقت"):
+            
+            try:
+                # إنشاء مجلد النتائج
+                output_dir = Path("outputs/camel_awards_audit")
+                output_dir.mkdir(parents=True, exist_ok=True)
+                
+                # تنفيذ التدقيق الشامل
+                st.info("📊 المرحلة 1/3: تطبيع البيانات...")
+                st.info("🔍 المرحلة 2/3: كشف التكرارات والمطابقة...")
+                st.info("✅ المرحلة 3/3: التحقق والتقارير...")
+
+                results = run_comprehensive_audit(
+                    awards_data=st.session_state.camel_awards_data.copy(),
+                    bank_data=st.session_state.camel_bank_data.copy() if st.session_state.camel_bank_data is not None else None,
+                    ground_truth_data=st.session_state.camel_ground_truth_data.copy() if st.session_state.camel_ground_truth_data is not None else None,
+                    use_composite_key=use_composite_key,
+                    enable_bank_matching=enable_bank_matching,
+                    enable_ground_truth=enable_ground_truth
+                )
+                
+                # 5. إنشاء التقارير
+                st.info("📄 إنشاء التقارير الشاملة...")
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                
+                report_paths = generate_reports(
+                    results=results,
+                    output_dir=output_dir,
+                    timestamp=timestamp
+                )
+                
+                results['report_paths'] = report_paths
+                
+                # حفظ النتائج
+                st.session_state.camel_audit_results = results
+                
+                st.success("✅ تم إكمال التدقيق الشامل بنجاح!")
+                
+            except Exception as e:
+                st.error(f"❌ خطأ أثناء التدقيق: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+    
+    # عرض النتائج
+    if st.session_state.camel_audit_results is not None:
+        st.markdown("---")
+        st.markdown("### 📊 نتائج التدقيق")
+        
+        results = st.session_state.camel_audit_results
+        
+        # إحصائيات رئيسية
+        st.markdown("#### 📈 الإحصائيات الرئيسية")
+        
+        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+        
+        with metric_col1:
+            total_records = results['duplicate_stats']['total_records']
+            st.metric(
+                "إجمالي السجلات",
+                f"{total_records:,}",
+                help="عدد سجلات الجوائز المعالجة"
+            )
+        
+        with metric_col2:
+            duplicate_count = results['duplicate_stats']['duplicate_records']
+            duplicate_pct = results['duplicate_stats']['duplicate_percentage']
+            st.metric(
+                "التكرارات المكتشفة",
+                f"{duplicate_count:,}",
+                f"{duplicate_pct:.2f}%",
+                delta_color="inverse",
+                help="عدد السجلات المكررة المكتشفة"
+            )
+        
+        with metric_col3:
+            if results['bank_match_stats']:
+                matched = results['bank_match_stats'].get('total_matched', 0)
+                match_pct = (matched / total_records * 100) if total_records > 0 else 0
+                st.metric(
+                    "مطابقات البنك",
+                    f"{matched:,}",
+                    f"{match_pct:.1f}%",
+                    help="عدد السجلات المطابقة مع البنك"
+                )
+            else:
+                st.metric("مطابقات البنك", "غير مفعّل")
+        
+        with metric_col4:
+            if results['validation_metrics']:
+                accuracy = results['validation_metrics'].get('accuracy', 0) * 100
+                st.metric(
+                    "دقة النظام",
+                    f"{accuracy:.1f}%",
+                    help="دقة النظام بناءً على الحقيقة الأرضية"
+                )
+            else:
+                st.metric("دقة النظام", "غير متاح")
+        
+        st.markdown("---")
+        
+        # التكرارات المكتشفة
+        if len(results['duplicates']) > 0:
+            st.markdown("#### 🔍 التكرارات المكتشفة")
+            
+            st.markdown(f"""
+            <div class="warning-box">
+                <h4>⚠️ تم العثور على {len(results['duplicates']):,} تكرار</h4>
+                <p>السجلات التالية تظهر مؤشرات التكرار بناءً على المفتاح المركب الذكي</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # تنظيف الأعمدة المكررة قبل العرض (PyArrow لا يدعم أعمدة مكررة)
+            duplicates_to_display = results['duplicates'].copy()
+            
+            # إزالة الأعمدة المكررة بالاحتفاظ بالأول فقط
+            if duplicates_to_display.columns.duplicated().any():
+                # الاحتفاظ بالأعمدة الفريدة (أول ظهور)
+                duplicates_to_display = duplicates_to_display.loc[:, ~duplicates_to_display.columns.duplicated(keep='first')]
+                st.info(f"ℹ️ تم إزالة الأعمدة المكررة للعرض (الاحتفاظ بأول ظهور)")
+            
+            # عرض جدول التكرارات
+            display_cols = [col for col in duplicates_to_display.columns if not col.startswith('_')]
+            st.dataframe(
+                duplicates_to_display[display_cols].head(50),
+                use_container_width=True,
+                height=400
+            )
+            st.caption(f"عرض أول 50 سجل من أصل {len(results['duplicates']):,}")
+            
+            # رسم بياني للتكرارات
+            if 'DuplicateGroup' in duplicates_to_display.columns:
+                fig = px.histogram(
+                    duplicates_to_display,
+                    x='DuplicateGroup',
+                    title="توزيع مجموعات التكرار",
+                    labels={'DuplicateGroup': 'مجموعة التكرار', 'count': 'العدد'}
+                )
+                fig.update_layout(height=400, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.markdown("""
+            <div class="success-box">
+                <h4>✅ لم يتم العثور على تكرارات</h4>
+                <p>جميع السجلات فريدة ولا توجد مؤشرات على التكرار</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # مطابقات البنك
+        if results['bank_matches'] is not None and len(results['bank_matches']) > 0:
+            st.markdown("#### 🏦 نتائج مطابقة البنك")
+            
+            bank_stats = results['bank_match_stats']
+            
+            # إحصائيات المطابقة
+            bank_col1, bank_col2, bank_col3 = st.columns(3)
+            
+            with bank_col1:
+                exact = bank_stats.get('exact_matches', 0)
+                st.metric("مطابقة تامة", f"{exact:,}", help="مطابقة 100%")
+            
+            with bank_col2:
+                fuzzy = bank_stats.get('fuzzy_matches', 0)
+                st.metric("مطابقة ضبابية", f"{fuzzy:,}", help="مطابقة 85-99%")
+            
+            with bank_col3:
+                not_matched = bank_stats.get('not_matched', 0)
+                st.metric("غير مطابق", f"{not_matched:,}", delta_color="inverse")
+            
+            # عرض المطابقات
+            with st.expander("📋 عرض تفاصيل المطابقات", expanded=False):
+                st.dataframe(
+                    results['bank_matches'].head(50),
+                    use_container_width=True,
+                    height=400
+                )
+        
+        st.markdown("---")
+        
+        # التحقق من الحقيقة الأرضية
+        if results['validation'] is not None:
+            st.markdown("#### ✅ نتائج التحقق من الحقيقة الأرضية")
+            
+            metrics = results['validation_metrics']
+            
+            val_col1, val_col2, val_col3, val_col4 = st.columns(4)
+            
+            with val_col1:
+                st.metric("الدقة (Accuracy)", f"{metrics.get('accuracy', 0)*100:.1f}%")
+            with val_col2:
+                st.metric("الاستدعاء (Recall)", f"{metrics.get('recall', 0)*100:.1f}%")
+            with val_col3:
+                st.metric("الدقة (Precision)", f"{metrics.get('precision', 0)*100:.1f}%")
+            with val_col4:
+                st.metric("F1-Score", f"{metrics.get('f1_score', 0)*100:.1f}%")
+            
+            # مصفوفة الارتباك
+            if 'confusion_matrix' in metrics:
+                cm = metrics['confusion_matrix']
+                
+                fig = go.Figure(data=go.Heatmap(
+                    z=[[cm.get('true_positive', 0), cm.get('false_positive', 0)],
+                       [cm.get('false_negative', 0), cm.get('true_negative', 0)]],
+                    x=['Predicted Duplicate', 'Predicted Unique'],
+                    y=['Actual Duplicate', 'Actual Unique'],
+                    colorscale='Blues',
+                    text=[[cm.get('true_positive', 0), cm.get('false_positive', 0)],
+                          [cm.get('false_negative', 0), cm.get('true_negative', 0)]],
+                    texttemplate='%{text}',
+                    textfont={"size": 20}
+                ))
+                
+                fig.update_layout(
+                    title="مصفوفة الارتباك (Confusion Matrix)",
+                    xaxis_title="التوقع",
+                    yaxis_title="الواقع",
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # تحميل التقارير
+        st.markdown("### 📥 تحميل التقارير")
+        
+        st.markdown("""
+        <div class="success-box">
+            <h4>✅ التقارير جاهزة للتحميل</h4>
+            <p>تم إنشاء 3 تقارير Excel شاملة مع التنسيق الاحترافي</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        report_paths = results['report_paths']
+        
+        download_col1, download_col2, download_col3 = st.columns(3)
+        
+        with download_col1:
+            if Path(report_paths['duplicates']).exists():
+                with open(report_paths['duplicates'], 'rb') as f:
+                    st.download_button(
+                        "📊 تحميل تقرير التكرارات",
+                        data=f,
+                        file_name=Path(report_paths['duplicates']).name,
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        use_container_width=True
+                    )
+        
+        with download_col2:
+            if report_paths.get('bank_verification') and Path(report_paths['bank_verification']).exists():
+                with open(report_paths['bank_verification'], 'rb') as f:
+                    st.download_button(
+                        "🏦 تحميل تقرير مطابقة البنك",
+                        data=f,
+                        file_name=Path(report_paths['bank_verification']).name,
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        use_container_width=True
+                    )
+            else:
+                st.info("ℹ️ تقرير البنك غير متوفر (لم يتم التفعيل)")
+        
+        with download_col3:
+            if report_paths.get('ground_truth') and Path(report_paths['ground_truth']).exists():
+                with open(report_paths['ground_truth'], 'rb') as f:
+                    st.download_button(
+                        "✅ تحميل تقرير التحقق",
+                        data=f,
+                        file_name=Path(report_paths['ground_truth']).name,
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        use_container_width=True
+                    )
+            else:
+                st.info("ℹ️ تقرير التحقق غير متوفر (لم يتم التفعيل)")
+        
+        st.markdown("---")
+        
+        # دليل الاستخدام
+        with st.expander("📚 دليل التقارير", expanded=False):
+            st.markdown("""
+            ### 📊 تقرير التكرارات (Awards_Duplicates)
+            - **الورقة الأولى**: جميع التكرارات المكتشفة
+            - **التفاصيل**: CompositeKey, OwnerName, AwardAmount, DuplicateCount
+            - **الاستخدام**: مراجعة الحالات المشبوهة
+            
+            ### 🏦 تقرير مطابقة البنك (Bank_Match_Verification)
+            - **الورقة الأولى**: مطابقة تامة (Exact Match)
+            - **الورقة الثانية**: مطابقة ضبابية (Fuzzy Match)
+            - **الورقة الثالثة**: غير مطابق (Not Matched)
+            - **التفاصيل**: الاسم، المبلغ، نسبة التطابق، حالة المطابقة
+            
+            ### ✅ تقرير التحقق (Ground_Truth_Validation)
+            - **الورقة الأولى**: مقاييس الأداء
+            - **الورقة الثانية**: مصفوفة الارتباك
+            - **الورقة الثالثة**: الحالات المكتشفة بشكل صحيح
+            - **الورقة الرابعة**: الحالات الفائتة
+            """)
 
 # التذييل
 st.divider()

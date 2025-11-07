@@ -1,0 +1,29 @@
+[server]
+# تحسينات الأداء للتطبيق
+maxUploadSize = 500
+maxMessageSize = 500
+enableCORS = true
+enableXsrfProtection = false
+enableStaticServing = false
+
+# تحسين سرعة الاستجابة
+fileWatcherType = "auto"
+runOnSave = true
+
+[browser]
+# تقليل الوقت المستغرق لتحميل الصفحة
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[runner]
+# معالجة أسرع للسكريبتات
+magicEnabled = true
+fastReruns = true
+
+[client]
+# تحسين الاتصال
+showErrorDetails = true
+toolbarMode = "auto"
+
+[theme]
+base = "light"
